@@ -69,8 +69,8 @@ impl Render for InboxPage {
                         h_flex()
                             .h_9()
                             .gap_2()
-                            .child(h_flex().gap_1().children(sidebar_toggle(cx)).child(div().text_base().font_semibold().child("API 输入")))
-                            .child(div().text_xs().text_color(theme.muted_foreground).child(format!("{} 条", memos.len()))),
+                            .child(h_flex().gap_1().children(sidebar_toggle(cx)).child(div().text_base().font_semibold().child(t!("API 输入"))))
+                            .child(div().text_xs().text_color(theme.muted_foreground).child(t!("{} 条", memos.len()))),
                     )
                     .child(
                         v_flex()
@@ -78,32 +78,32 @@ impl Render for InboxPage {
                             .p_4()
                             .rounded_lg()
                             .bg(s.card)
-                            .child(div().text_sm().child("在任何地方记录，自动汇入 MindFlow"))
+                            .child(div().text_sm().child(t!("在任何地方记录，自动汇入 Mori")))
                             .child(method(
                                 Lucide::Webhook,
-                                "记录 API",
+                                t!("记录 API"),
                                 if running {
-                                    format!("POST http://127.0.0.1:{}/api/v1/memos ，可配合快捷指令、Raycast、Alfred 或脚本使用", settings.api_port)
+                                    t!("POST http://127.0.0.1:{}/api/v1/memos ，可配合快捷指令、Raycast、Alfred 或脚本使用", settings.api_port)
                                 } else {
-                                    "未启用。开启后可通过 HTTP 请求写入笔记，配合快捷指令、Raycast、Alfred 或脚本使用".into()
+                                    t!("未启用。开启后可通过 HTTP 请求写入笔记，配合快捷指令、Raycast、Alfred 或脚本使用").into()
                                 },
                             ))
                             .child(method(
                                 Lucide::Smartphone,
-                                "快捷指令",
-                                "在「快捷指令」中添加「获取 URL 内容」，方法选 POST，请求体 JSON 填 content，即可从菜单栏或 Siri 记录".into(),
+                                t!("快捷指令"),
+                                t!("在「快捷指令」中添加「获取 URL 内容」，方法选 POST，请求体 JSON 填 content，即可从菜单栏或 Siri 记录").into(),
                             ))
                             .child(method(
                                 Lucide::Bot,
                                 "MCP",
-                                "在 Claude、Cursor 等 AI 工具里说「把这段结论记到 MindFlow」，笔记会出现在这里".into(),
+                                t!("在 Claude、Cursor 等 AI 工具里说「把这段结论记到 Mori」，笔记会出现在这里").into(),
                             ))
                             .child(
                                 h_flex().child(
                                     Button::new("inbox-settings")
                                         .outline()
                                         .small()
-                                        .label(if running { "查看接口配置" } else { "去开启" })
+                                        .label(if running { t!("查看接口配置") } else { t!("去开启") })
                                         .on_click(|_, window, cx| {
                                             dispatch(Command::OpenSettings(SettingsSection::Open), window, cx)
                                         }),
@@ -118,7 +118,7 @@ impl Render for InboxPage {
                                 .justify_center()
                                 .text_sm()
                                 .text_color(theme.muted_foreground)
-                                .child("还没有通过 API 或 MCP 写入的笔记"),
+                                .child(t!("还没有通过 API 或 MCP 写入的笔记")),
                         )
                     })
                     .children(memos.iter().map(|memo| memo_card(memo, CardOptions::new("inbox"), lib, cx))),

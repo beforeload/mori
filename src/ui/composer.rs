@@ -79,7 +79,7 @@ impl Composer {
         let input = cx.new(|cx| {
             TextareaState::new(window, cx)
                 .auto_grow(3, 18)
-                .placeholder("现在的想法是...")
+                .placeholder(t!("现在的想法是..."))
         });
         let subscriptions = vec![cx.subscribe_in(&input, window, Self::on_input_event)];
         let mut composer = Self {
@@ -282,7 +282,7 @@ impl Composer {
             files: true,
             directories: false,
             multiple: true,
-            prompt: Some("添加图片".into()),
+            prompt: Some(t!("添加图片").into()),
         });
         cx.spawn(async move |this, cx| {
             let Ok(Ok(Some(paths))) = paths.await else {
@@ -293,7 +293,7 @@ impl Composer {
                 for path in paths {
                     match library.read(cx).store().import_image_file(&path) {
                         Ok(name) => this.images.push(name),
-                        Err(err) => this.error = Some(format!("无法添加图片：{err}")),
+                        Err(err) => this.error = Some(t!("无法添加图片：{}", err)),
                     }
                 }
                 cx.notify();
@@ -307,7 +307,7 @@ impl Composer {
         for (bytes, ext) in entries {
             match library.read(cx).store().save_image_bytes(&bytes, ext) {
                 Ok(name) => self.images.push(name),
-                Err(err) => self.error = Some(format!("无法保存图片：{err}")),
+                Err(err) => self.error = Some(t!("无法保存图片：{}", err)),
             }
         }
         cx.notify();
@@ -316,7 +316,7 @@ impl Composer {
     fn suggest_tags_with_ai(&mut self, _: &mut Window, cx: &mut Context<Self>) {
         let content = self.input.read(cx).value().to_string();
         if content.trim().is_empty() {
-            self.error = Some("先写点内容，再让 AI 推荐标签".into());
+            self.error = Some(t!("先写点内容，再让 AI 推荐标签").into());
             cx.notify();
             return;
         }
@@ -331,7 +331,7 @@ impl Composer {
                 .collect();
             self.ai_tags = lib.index().suggest_tags(&content, &memo_tags, 5);
             if self.ai_tags.is_empty() {
-                self.error = Some("没有找到相似笔记的标签；配置 AI 服务后可获得更好的推荐".into());
+                self.error = Some(t!("没有找到相似笔记的标签；配置 AI 服务后可获得更好的推荐").into());
             }
             cx.notify();
             return;
@@ -350,7 +350,7 @@ impl Composer {
                     Some(Ok(reply)) => {
                         this.ai_tags = ai::parse_string_list(&reply);
                         if this.ai_tags.is_empty() {
-                            this.error = Some("AI 没有给出标签建议".into());
+                            this.error = Some(t!("AI 没有给出标签建议").into());
                         }
                     }
                     Some(Err(err)) => this.error = Some(err.to_string()),
@@ -404,7 +404,7 @@ impl Composer {
                 cx.emit(ComposerEvent::Submitted(id));
             }
             Err(err) => {
-                window.push_notification(format!("保存失败：{err}"), cx);
+                window.push_notification(t!("保存失败：{}", err), cx);
             }
         }
         cx.notify();
@@ -423,7 +423,7 @@ impl Composer {
             .text_xs();
         Some(match suggestion {
             Suggestion::Tags { start, items } => row
-                .child(div().text_color(theme.muted_foreground).mr_1().child("标签"))
+                .child(div().text_color(theme.muted_foreground).mr_1().child(t!("标签")))
                 .children(items.into_iter().enumerate().map(|(i, tag)| {
                     let t = tag.clone();
                     Button::new(("tag-suggest", i))
@@ -436,8 +436,8 @@ impl Composer {
                 let empty = items.is_empty();
                 row.flex_col()
                     .items_start()
-                    .child(div().text_color(theme.muted_foreground).child("引用笔记（输入关键词筛选）"))
-                    .when(empty, |r| r.child(div().text_color(theme.muted_foreground).child("没有匹配的笔记")))
+                    .child(div().text_color(theme.muted_foreground).child(t!("引用笔记（输入关键词筛选）")))
+                    .when(empty, |r| r.child(div().text_color(theme.muted_foreground).child(t!("没有匹配的笔记"))))
                     .children(items.into_iter().map(|(id, snippet)| {
                         let rid = id.clone();
                         Button::new(SharedString::from(format!("ref-suggest-{id}")))
@@ -467,15 +467,15 @@ impl Composer {
         let view = cx.entity().downgrade();
         h_flex()
             .gap_0p5()
-            .child(tool("tb-tag", Lucide::Hash, "插入标签").on_click(cx.listener(|this, _, window, cx| this.insert_text("#", window, cx))))
-            .child(tool("tb-image", Lucide::Image, "添加图片（也可直接粘贴）").on_click(cx.listener(|this, _, window, cx| this.pick_images(window, cx))))
+            .child(tool("tb-tag", Lucide::Hash, t!("插入标签")).on_click(cx.listener(|this, _, window, cx| this.insert_text("#", window, cx))))
+            .child(tool("tb-image", Lucide::Image, t!("添加图片（也可直接粘贴）")).on_click(cx.listener(|this, _, window, cx| this.pick_images(window, cx))))
             .child(divider())
             .child(
                 Button::new("tb-format")
                     .ghost()
                     .small()
                     .icon(Icon::new(Lucide::ALargeSmall).text_color(muted))
-                    .tooltip("文本格式")
+                    .tooltip(t!("文本格式"))
                     .dropdown_menu_with_anchor(gpui_kit::Anchor::BottomLeft, move |menu, _, _| {
                         let item = |label: &'static str, icon: Lucide, marker: &'static str| {
                             let view = view.clone();
@@ -485,18 +485,18 @@ impl Composer {
                                     let _ = view.update(cx, |this, cx| this.wrap_selection(marker, window, cx));
                                 })
                         };
-                        menu.item(item("加粗  ⌘B", Lucide::Bold, "**"))
-                            .item(item("高亮  ⌘⇧H", Lucide::Highlighter, "=="))
-                            .item(item("下划线  ⌘U", Lucide::Underline, "__"))
-                            .item(item("删除线", Lucide::Strikethrough, "~~"))
+                        menu.item(item(t!("加粗  ⌘B"), Lucide::Bold, "**"))
+                            .item(item(t!("高亮  ⌘⇧H"), Lucide::Highlighter, "=="))
+                            .item(item(t!("下划线  ⌘U"), Lucide::Underline, "__"))
+                            .item(item(t!("删除线"), Lucide::Strikethrough, "~~"))
                     }),
             )
-            .child(tool("tb-list", Lucide::List, "无序列表").on_click(cx.listener(|this, _, window, cx| this.prefix_line("- ", window, cx))))
-            .child(tool("tb-olist", Lucide::ListOrdered, "有序列表").on_click(cx.listener(|this, _, window, cx| this.prefix_line("1. ", window, cx))))
+            .child(tool("tb-list", Lucide::List, t!("无序列表")).on_click(cx.listener(|this, _, window, cx| this.prefix_line("- ", window, cx))))
+            .child(tool("tb-olist", Lucide::ListOrdered, t!("有序列表")).on_click(cx.listener(|this, _, window, cx| this.prefix_line("1. ", window, cx))))
             .child(divider())
-            .child(tool("tb-ref", Lucide::AtSign, "引用笔记").on_click(cx.listener(|this, _, window, cx| this.insert_text("@", window, cx))))
+            .child(tool("tb-ref", Lucide::AtSign, t!("引用笔记")).on_click(cx.listener(|this, _, window, cx| this.insert_text("@", window, cx))))
             .child(
-                tool("tb-ai-tags", Lucide::WandSparkles, "推荐标签")
+                tool("tb-ai-tags", Lucide::WandSparkles, t!("推荐标签"))
                     .loading(self.ai_loading)
                     .on_click(cx.listener(|this, _, window, cx| this.suggest_tags_with_ai(window, cx))),
             )
@@ -506,7 +506,7 @@ impl Composer {
                     Button::new("tb-cancel")
                         .ghost()
                         .small()
-                        .label("取消")
+                        .label(t!("取消"))
                         .on_click(cx.listener(|_, _, _, cx| cx.emit(ComposerEvent::Cancelled))),
                 )
             })
@@ -518,7 +518,7 @@ impl Composer {
                     .when(!empty, |b| b.primary())
                     .icon(Icon::new(Lucide::SendHorizontal))
                     .disabled(empty)
-                    .tooltip(if editing { "保存 ⌘↩" } else { "发送 ⌘↩" })
+                    .tooltip(if editing { t!("保存 ⌘↩") } else { t!("发送 ⌘↩") })
                     .on_click(cx.listener(|this, _, window, cx| this.submit(window, cx))),
             )
     }
@@ -592,7 +592,7 @@ impl Render for Composer {
                         .flex_wrap()
                         .gap_1()
                         .text_xs()
-                        .child(div().text_color(theme.muted_foreground).child("推荐标签"))
+                        .child(div().text_color(theme.muted_foreground).child(t!("推荐标签")))
                         .children(self.ai_tags.iter().enumerate().map(|(i, tag)| {
                             let t = tag.clone();
                             Button::new(("ai-tag", i))

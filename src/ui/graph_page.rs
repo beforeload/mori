@@ -147,9 +147,9 @@ impl GraphPage {
                 .justify_center()
                 .gap_2()
                 .text_color(theme.muted_foreground)
-                .child(if self.computing { "正在计算关系图…" } else { "还没有笔记之间的批注或引用连接" })
+                .child(if self.computing { t!("正在计算关系图…") } else { t!("还没有笔记之间的批注或引用连接") })
                 .when(!self.computing && !self.include_semantic, |this| {
-                    this.child(div().text_xs().child("在卡片菜单中点「批注」即可建立连接；也可以打开右上角的「语义关联」，看看笔记之间隐藏的联系。"))
+                    this.child(div().text_xs().child(t!("在卡片菜单中点「批注」即可建立连接；也可以打开右上角的「语义关联」，看看笔记之间隐藏的联系。")))
                 })
                 .into_any_element();
         };
@@ -295,25 +295,25 @@ impl Render for GraphPage {
             .child(
                 h_flex()
                     .gap_3()
-                    .child(h_flex().gap_1().children(sidebar_toggle(cx)).child(div().text_lg().font_semibold().child("笔记关系图")))
+                    .child(h_flex().gap_1().children(sidebar_toggle(cx)).child(div().text_lg().font_semibold().child(t!("笔记关系图"))))
                     .child(
                         div()
                             .text_xs()
                             .text_color(theme.muted_foreground)
-                            .child(format!("{nodes} 条笔记 · {refs} 条批注连接 · {semantic} 条语义关联")),
+                            .child(t!("{} 条笔记 · {} 条批注连接 · {} 条语义关联", nodes, refs, semantic)),
                     )
                     .child(div().flex_1())
                     .child(
                         h_flex()
                             .gap_3()
                             .text_xs()
-                            .child(h_flex().gap_1().child(div().w_4().h_0p5().bg(theme.blue)).child("批注 / 引用"))
-                            .child(h_flex().gap_1().child(div().w_4().h_0p5().bg(theme.green)).child("语义关联")),
+                            .child(h_flex().gap_1().child(div().w_4().h_0p5().bg(theme.blue)).child(t!("批注 / 引用")))
+                            .child(h_flex().gap_1().child(div().w_4().h_0p5().bg(theme.green)).child(t!("语义关联"))),
                     )
                     .child(
                         Switch::new("graph-semantic")
                             .small()
-                            .label("语义关联")
+                            .label(t!("语义关联"))
                             .checked(self.include_semantic)
                             .on_change(cx.listener(|this, checked: &bool, _, cx| {
                                 this.include_semantic = *checked;
@@ -344,11 +344,11 @@ impl Render for GraphPage {
                                 .flex_shrink_0()
                                 .gap_2()
                                 .overflow_y_scrollbar()
-                                .child(div().text_xs().text_color(theme.muted_foreground).child("选中的笔记"))
+                                .child(div().text_xs().text_color(theme.muted_foreground).child(t!("选中的笔记")))
                                 .child(mini_card("graph-selected", &memo, None, cx))
-                                .child(div().pt_2().text_xs().text_color(theme.muted_foreground).child(format!("相连的笔记 {}", neighbors.len())))
+                                .child(div().pt_2().text_xs().text_color(theme.muted_foreground).child(t!("相连的笔记 {}", neighbors.len())))
                                 .children(neighbors.iter().map(|(m, k)| {
-                                    mini_card("graph-neighbor", m, Some(if *k == EdgeKind::Reference { "批注".into() } else { "语义".into() }), cx)
+                                    mini_card("graph-neighbor", m, Some(if *k == EdgeKind::Reference { t!("批注").into() } else { t!("语义").into() }), cx)
                                 })),
                         )
                     }),

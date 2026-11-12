@@ -23,12 +23,14 @@ use super::memo_card::mini_card;
 use super::tasks::{StreamEvent, run_blocking, stream_chat};
 use super::{Command, Lucide, dispatch};
 
-const STARTERS: [&str; 4] = [
-    "最近一个月我主要在思考什么？",
-    "根据我的笔记，我是一个怎样的人？",
-    "我在工作上有哪些反复出现的困扰？",
-    "帮我把关于读书的笔记整理成几个主题",
-];
+fn starters() -> [&'static str; 4] {
+    [
+        t!("最近一个月我主要在思考什么？"),
+        t!("根据我的笔记，我是一个怎样的人？"),
+        t!("我在工作上有哪些反复出现的困扰？"),
+        t!("帮我把关于读书的笔记整理成几个主题"),
+    ]
+}
 
 pub struct ChatPage {
     messages: Vec<ChatRecord>,
@@ -52,7 +54,7 @@ impl ChatPage {
             TextareaState::new(window, cx)
                 .auto_grow(1, 6)
                 .submit_on_enter(true)
-                .placeholder("问问你的笔记…  ↩ 发送，⇧↩ 换行")
+                .placeholder(t!("问问你的笔记…  ↩ 发送，⇧↩ 换行"))
         });
         let subscriptions = vec![cx.subscribe_in(&input, window, |this, _, event, window, cx| {
             if let InputEvent::PressEnter { shift: false, .. } = event {
@@ -88,7 +90,7 @@ impl ChatPage {
         let library = Library::global(cx);
         let cfg = library.read(cx).settings().ai.clone();
         if !cfg.is_configured() {
-            window.push_notification("请先在设置中配置 AI 服务", cx);
+            window.push_notification(t!("请先在设置中配置 AI 服务"), cx);
             return;
         }
         self.input.update(cx, |s, cx| s.set_value("", window, cx));
@@ -212,7 +214,7 @@ impl ChatPage {
             .border_color(theme.border)
             .child(TextView::markdown(SharedString::from(format!("chat-{}", message.id)), message.content.clone()))
             .when(!cited.is_empty(), |this| {
-                this.child(div().text_xs().text_color(theme.muted_foreground).child("参考的笔记"))
+                this.child(div().text_xs().text_color(theme.muted_foreground).child(t!("参考的笔记")))
                     .children(cited.iter().map(|(n, m)| mini_card("chat-cite", m, Some(format!("[{n}]")), cx)))
             })
             .child(
@@ -221,7 +223,7 @@ impl ChatPage {
                         .ghost()
                         .xsmall()
                         .icon(Icon::new(Lucide::NotebookPen))
-                        .label("记成笔记")
+                        .label(t!("记成笔记"))
                         .on_click(move |_, window, cx| {
                             let text = save_text.clone();
                             let result = Library::global(cx).update(cx, |lib, cx| {
@@ -230,7 +232,7 @@ impl ChatPage {
                                 })
                             });
                             if result.is_ok() {
-                                window.push_notification("已把这段讨论写回笔记", cx);
+                                window.push_notification(t!("已把这段讨论写回笔记"), cx);
                             }
                         }),
                 ),
@@ -259,12 +261,12 @@ impl Render for ChatPage {
                     .pt_4()
                     .pb_2()
                     .gap_2()
-                    .child(div().text_xs().text_color(theme.muted_foreground).child("读过你所有笔记的 AI 伙伴"))
+                    .child(div().text_xs().text_color(theme.muted_foreground).child(t!("读过你所有笔记的 AI 伙伴")))
                     .child(div().flex_1())
                     .child(
                         Switch::new("use-memory")
                             .small()
-                            .label(if has_memory { "结合记忆档案" } else { "结合记忆档案（未生成）" })
+                            .label(if has_memory { t!("结合记忆档案") } else { t!("结合记忆档案（未生成）") })
                             .checked(self.use_memory && has_memory)
                             .on_change(cx.listener(|this, checked: &bool, _, cx| {
                                 this.use_memory = *checked;
@@ -276,7 +278,7 @@ impl Render for ChatPage {
                             .ghost()
                             .small()
                             .icon(Icon::new(Lucide::Eraser))
-                            .label("清空对话")
+                            .label(t!("清空对话"))
                             .disabled(self.messages.is_empty())
                             .on_click(cx.listener(|this, _, _, cx| {
                                 let library = Library::global(cx);
@@ -315,11 +317,11 @@ impl Render for ChatPage {
                                         .rounded_md()
                                         .bg(theme.warning.opacity(0.12))
                                         .child(Icon::new(Lucide::CircleAlert).small().text_color(theme.warning))
-                                        .child(div().flex_1().text_sm().child("还没有配置 AI 服务"))
+                                        .child(div().flex_1().text_sm().child(t!("还没有配置 AI 服务")))
                                         .child(
                                             Button::new("chat-settings")
                                                 .small()
-                                                .label("去设置")
+                                                .label(t!("去设置"))
                                                 .on_click(|_, window, cx| dispatch(Command::OpenSettings(super::settings_page::SettingsSection::Ai), window, cx)),
                                         ),
                                 )
@@ -331,12 +333,12 @@ impl Render for ChatPage {
                                         .py_8()
                                         .items_center()
                                         .child(Icon::new(Lucide::MessageCircle).large().text_color(theme.muted_foreground))
-                                        .child(div().text_sm().text_color(theme.muted_foreground).child("回顾、思考、追问。回答会标注参考了哪几条笔记。"))
-                                        .child(h_flex().flex_wrap().justify_center().gap_2().children(STARTERS.iter().enumerate().map(|(i, q)| {
+                                        .child(div().text_sm().text_color(theme.muted_foreground).child(t!("回顾、思考、追问。回答会标注参考了哪几条笔记。")))
+                                        .child(h_flex().flex_wrap().justify_center().gap_2().children(starters().into_iter().enumerate().map(|(i, q)| {
                                             Button::new(("starter", i))
                                                 .outline()
                                                 .small()
-                                                .label(*q)
+                                                .label(q)
                                                 .on_click(cx.listener(move |this, _, window, cx| this.ask(q, window, cx)))
                                         }))),
                                 )
@@ -352,7 +354,7 @@ impl Render for ChatPage {
                                         .border_1()
                                         .border_color(theme.border)
                                         .child(if text.is_empty() {
-                                            div().text_sm().text_color(theme.muted_foreground).child("正在翻阅你的笔记…").into_any_element()
+                                            div().text_sm().text_color(theme.muted_foreground).child(t!("正在翻阅你的笔记…")).into_any_element()
                                         } else {
                                             TextView::markdown("chat-streaming", text).into_any_element()
                                         }),

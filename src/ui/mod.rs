@@ -48,16 +48,16 @@ pub enum Route {
 impl Route {
     pub fn title(self) -> &'static str {
         match self {
-            Route::Memos => "全部笔记",
-            Route::Inbox => "API 输入",
-            Route::Review => "每日回顾",
-            Route::Insight => "AI 洞察",
-            Route::Walk => "随机漫步",
-            Route::Map => "认知地图",
-            Route::Graph => "笔记关系图",
-            Route::Stats => "记录统计",
-            Route::Memory => "AI 记忆档案",
-            Route::Trash => "回收站",
+            Route::Memos => t!("全部笔记"),
+            Route::Inbox => t!("API 输入"),
+            Route::Review => t!("每日回顾"),
+            Route::Insight => t!("AI 洞察"),
+            Route::Walk => t!("随机漫步"),
+            Route::Map => t!("认知地图"),
+            Route::Graph => t!("笔记关系图"),
+            Route::Stats => t!("记录统计"),
+            Route::Memory => t!("AI 记忆档案"),
+            Route::Trash => t!("回收站"),
         }
     }
 

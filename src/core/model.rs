@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::i18n::Language;
+
 use super::parse;
 
 pub type MemoId = String;
@@ -130,11 +132,11 @@ impl ReviewRange {
 
     pub fn label(self) -> &'static str {
         match self {
-            ReviewRange::All => "全部时间",
-            ReviewRange::OneYear => "1 年内",
-            ReviewRange::SixMonths => "6 个月内",
-            ReviewRange::ThreeMonths => "3 个月内",
-            ReviewRange::OneMonth => "1 个月内",
+            ReviewRange::All => t!("全部时间"),
+            ReviewRange::OneYear => t!("1 年内"),
+            ReviewRange::SixMonths => t!("6 个月内"),
+            ReviewRange::ThreeMonths => t!("3 个月内"),
+            ReviewRange::OneMonth => t!("1 个月内"),
         }
     }
 
@@ -188,9 +190,9 @@ impl Appearance {
 
     pub fn label(self) -> &'static str {
         match self {
-            Appearance::System => "跟随系统",
-            Appearance::Light => "浅色",
-            Appearance::Dark => "深色",
+            Appearance::System => t!("跟随系统"),
+            Appearance::Light => t!("浅色"),
+            Appearance::Dark => t!("深色"),
         }
     }
 }
@@ -216,11 +218,11 @@ impl BodyFont {
 
     pub fn label(self) -> &'static str {
         match self {
-            BodyFont::System => "默认",
-            BodyFont::PingFang => "苹方",
-            BodyFont::Songti => "宋体",
-            BodyFont::Kaiti => "楷体",
-            BodyFont::Mono => "等宽",
+            BodyFont::System => t!("默认"),
+            BodyFont::PingFang => t!("苹方"),
+            BodyFont::Songti => t!("宋体"),
+            BodyFont::Kaiti => t!("楷体"),
+            BodyFont::Mono => t!("等宽"),
         }
     }
 }
@@ -238,9 +240,9 @@ impl LineSpacing {
 
     pub fn label(self) -> &'static str {
         match self {
-            LineSpacing::Compact => "紧凑",
-            LineSpacing::Default => "默认",
-            LineSpacing::Loose => "宽松",
+            LineSpacing::Compact => t!("紧凑"),
+            LineSpacing::Default => t!("默认"),
+            LineSpacing::Loose => t!("宽松"),
         }
     }
 }
@@ -270,6 +272,7 @@ pub struct Settings {
     pub custom_perspectives: Vec<CustomPerspective>,
     pub nickname: String,
     pub font_size: f32,
+    pub language: Language,
     /// User choice for wide windows; narrow windows always tuck the sidebar away.
     pub sidebar_hidden: bool,
 }
@@ -300,6 +303,7 @@ impl Default for Settings {
             nickname: "我".into(),
             font_size: 15.,
             sidebar_hidden: false,
+            language: Language::ZhHans,
         }
     }
 }

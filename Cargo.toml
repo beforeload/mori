@@ -1,9 +1,17 @@
 [package]
-name = "mindflow"
+name = "mori"
 version = "0.1.0"
 edition = "2024"
+description = "Mori is a local-first card notebook for macOS: capture freely, then revisit, wander, and map what you keep thinking about."
+readme = "README.md"
 license = "MIT"
-repository = "https://github.com/beforeload/mindflow"
+repository = "https://github.com/beforeload/mori"
+keywords = ["notes", "macos", "local-first", "gpui"]
+categories = ["gui"]
+
+[[bin]]
+name = "mori"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.104"

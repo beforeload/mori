@@ -44,19 +44,19 @@ pub fn render_png(svg: &str, scale: f32) -> Result<Vec<u8>> {
     pixmap.encode_png().context("无法编码 PNG")
 }
 
-/// A timestamped file path in ~/Downloads/MindFlow, creating the folder if needed.
+/// A timestamped file path in ~/Downloads/Mori, creating the folder if needed.
 pub fn output_path(stem: &str, extension: &str) -> Result<PathBuf> {
     let dir = dirs::download_dir()
         .or_else(dirs::home_dir)
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("MindFlow");
+        .join("Mori");
     std::fs::create_dir_all(&dir)?;
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
     let stem: String = stem.chars().map(|c| if matches!(c, '/' | '\\' | ':') { '-' } else { c }).collect();
     Ok(dir.join(format!("{stem}-{stamp}.{extension}")))
 }
 
-/// Saves into ~/Downloads/MindFlow and returns the path.
+/// Saves into ~/Downloads/Mori and returns the path.
 pub fn save_png(bytes: &[u8], stem: &str) -> Result<PathBuf> {
     let path = output_path(stem, "png")?;
     std::fs::write(&path, bytes)?;
@@ -252,7 +252,7 @@ pub fn memo_share_svg(memo: &Memo, nickname: &str, dark: bool, ref_label: &dyn F
 <text x="{inner_x}" y="104" font-size="22" fill="{muted}">{date}</text>
 {body}
 <circle cx="{dot_x}" cy="{dot_y}" r="9" fill="{accent}"/>
-<text x="{text_x}" y="{footer_y}" font-size="22" fill="{muted}">{name} · {count} 字 · MindFlow</text>
+<text x="{text_x}" y="{footer_y}" font-size="22" fill="{muted}">{name} · {count} {unit} · Mori</text>
 </svg>"##,
         page = colors.page,
         card = colors.card,
@@ -265,6 +265,7 @@ pub fn memo_share_svg(memo: &Memo, nickname: &str, dark: bool, ref_label: &dyn F
         text_x = card_x + 30.0,
         name = escape(nickname),
         count = memo.char_count,
+        unit = t!("字"),
     )
 }
 
@@ -289,7 +290,7 @@ mod tests {
             has_link: false,
         };
         memo.refresh_derived();
-        let svg = memo_share_svg(&memo, "MindFlow", false, &|_| String::new());
+        let svg = memo_share_svg(&memo, "Mori", false, &|_| String::new());
         let png = render_png(&svg, 1.0).unwrap();
         assert!(png.starts_with(&[0x89, b'P', b'N', b'G']));
         assert!(png.len() > 5000);

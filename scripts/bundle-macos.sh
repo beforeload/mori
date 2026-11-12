@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds a release binary and produces dist/MindFlow.app, dist/MindFlow-<version>.dmg and .zip.
+# Builds a release binary and produces dist/Mori.app, dist/Mori-<version>.dmg and .zip.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -9,10 +9,10 @@ cargo build --release
 
 VERSION=$(grep -m1 '^version' Cargo.toml | cut -d '"' -f2)
 ARCH=$(uname -m)
-APP=dist/MindFlow.app
+APP=dist/Mori.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp target/release/mindflow "$APP/Contents/MacOS/mindflow"
+cp target/release/mori "$APP/Contents/MacOS/mori"
 cp assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
@@ -20,10 +20,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key><string>MindFlow</string>
-    <key>CFBundleDisplayName</key><string>MindFlow</string>
-    <key>CFBundleIdentifier</key><string>app.mindflow.desktop</string>
-    <key>CFBundleExecutable</key><string>mindflow</string>
+    <key>CFBundleName</key><string>Mori</string>
+    <key>CFBundleDisplayName</key><string>Mori</string>
+    <key>CFBundleIdentifier</key><string>app.mori.desktop</string>
+    <key>CFBundleExecutable</key><string>mori</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>${VERSION}</string>
@@ -37,13 +37,13 @@ PLIST
 
 codesign --force --deep --sign - "$APP"
 
-DMG="dist/MindFlow-${VERSION}-${ARCH}.dmg"
-ZIP="dist/MindFlow-${VERSION}-${ARCH}.zip"
+DMG="dist/Mori-${VERSION}-${ARCH}.dmg"
+ZIP="dist/Mori-${VERSION}-${ARCH}.zip"
 STAGE=$(mktemp -d)
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 rm -f "$DMG" "$ZIP"
-hdiutil create -volname "MindFlow" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+hdiutil create -volname "Mori" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
 rm -rf "$STAGE"
 ditto -c -k --keepParent "$APP" "$ZIP"
 

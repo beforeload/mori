@@ -39,6 +39,14 @@ impl ChatMessage {
     }
 }
 
+fn reply_in() -> &'static str {
+    crate::i18n::language().reply_instruction()
+}
+
+fn with_reply_language(prompt: &str) -> String {
+    format!("{prompt}\n{}", reply_in())
+}
+
 fn endpoint(cfg: &AiConfig, path: &str) -> String {
     format!("{}/{}", cfg.base_url.trim().trim_end_matches('/'), path)
 }
@@ -202,10 +210,10 @@ pub fn test_connection(cfg: &AiConfig) -> Result<String> {
         cfg,
         &[ChatMessage::user("请只回复“连接成功”四个字。")],
     )?;
-    let mut summary = format!("对话模型 {} 可用：{}", cfg.chat_model, reply.trim());
+    let mut summary = t!("对话模型 {} 可用：{}", cfg.chat_model, reply.trim());
     if cfg.uses_remote_embeddings() {
         let v = embed(cfg, &["测试".to_string()])?;
-        summary.push_str(&format!("；Embedding 模型 {} 可用（{} 维）", cfg.embedding_model, v[0].len()));
+        summary.push_str(&t!("；Embedding 模型 {} 可用（{} 维）", cfg.embedding_model, v[0].len()));
     }
     Ok(summary)
 }
@@ -300,7 +308,7 @@ pub const INSIGHT_SYSTEM: &str = "你是用户的思考伙伴，正在阅读用�
 要求：\n\
 1. 只依据提供的笔记，不要编造笔记中没有的事实；\n\
 2. 每当观点来自某条笔记，在句末用 [编号] 标注来源，例如 [3]；\n\
-3. 用中文、Markdown 输出，结构清晰，300-600 字；\n\
+3. 使用 Markdown 输出，结构清晰，300-600 字；\n\
 4. 语气真诚、具体，避免空洞的鸡汤和说教。";
 
 /// Formats memos as numbered context entries, newest first, within a character budget.
@@ -349,7 +357,7 @@ pub fn sample_memos<'a>(memos: &[&'a Memo], max: usize) -> Vec<&'a Memo> {
 
 pub fn insight_messages(instruction: &str, perspective_name: &str, notes: &str, note_count: usize) -> Vec<ChatMessage> {
     vec![
-        ChatMessage::system(INSIGHT_SYSTEM),
+        ChatMessage::system(with_reply_language(INSIGHT_SYSTEM)),
         ChatMessage::user(format!(
             "洞察视角：{perspective_name}\n{instruction}\n\n以下是我的 {note_count} 条笔记：\n\n{notes}"
         )),
@@ -362,13 +370,13 @@ pub fn chat_system(memory: Option<&str>) -> String {
 回答规则：\n\
 1. 优先依据「相关笔记」作答，引用时在句末标注 [编号]；\n\
 2. 笔记中没有的信息要坦诚说明，可以补充通用知识，但要和笔记中的事实区分开；\n\
-3. 用中文回答，简洁、具体，适当使用 Markdown。",
+3. 简洁、具体，适当使用 Markdown。",
     );
     if let Some(memory) = memory.filter(|m| !m.trim().is_empty()) {
         s.push_str("\n\n以下是用户的记忆档案，帮助你了解他：\n");
         s.push_str(memory);
     }
-    s
+    with_reply_language(&s)
 }
 
 pub fn chat_user_turn(question: &str, notes: &str) -> String {
@@ -385,14 +393,14 @@ pub const MEMORY_CATEGORIES: &[&str] = &[
 
 pub fn memory_extract_messages(notes: &str) -> Vec<ChatMessage> {
     vec![
-        ChatMessage::system(format!(
+        ChatMessage::system(with_reply_language(&format!(
             "你是一名细致的记忆整理员。阅读用户的笔记，提取关于用户本人的结构化记忆碎片。\n\
 每条碎片是一个具体的特质、事实或事件，用第三人称简洁陈述（如“用户在做独立开发”）。\n\
 类别只能从以下选择：{}。\n\
 只输出 JSON：{{\"fragments\":[{{\"category\":\"类别\",\"content\":\"内容\",\"refs\":[笔记编号]}}]}}，不要输出其他文字。\n\
 没有关于用户本人的信息时输出 {{\"fragments\":[]}}。",
             MEMORY_CATEGORIES.join("、")
-        )),
+        ))),
         ChatMessage::user(format!("笔记如下：\n\n{notes}")),
     ]
 }
@@ -444,7 +452,7 @@ pub fn memory_integrate_messages(fragments: &[MemoryFragment]) -> Vec<ChatMessag
         list.push_str(&format!("- [{}] {}\n", f.category, f.content));
     }
     vec![
-        ChatMessage::system(
+        ChatMessage::system(with_reply_language(
             "你负责把记忆碎片整合成一份 AI 能读懂的记忆档案，供其他 AI 助手了解用户。\n\
 输出两部分，严格使用下面的分隔标记：\n\
 =====PROFILE=====\n\
@@ -452,7 +460,7 @@ pub fn memory_integrate_messages(fragments: &[MemoryFragment]) -> Vec<ChatMessag
 =====MEMORY=====\n\
 记忆文档（Markdown）：当前的工作、兴趣、项目、目标、近期在想的事等会随时间变化的信息，分小节，条目化。\n\
 要求：合并重复，保留具体细节，不编造，不评价，使用第三人称“用户”。",
-        ),
+        )),
         ChatMessage::user(format!("记忆碎片：\n{list}")),
     ]
 }
@@ -476,10 +484,10 @@ pub fn parse_memory_documents(reply: &str) -> (String, String) {
 pub fn tag_suggest_messages(content: &str, existing_tags: &[String]) -> Vec<ChatMessage> {
     let tags: Vec<String> = existing_tags.iter().take(200).map(|t| format!("#{t}")).collect();
     vec![
-        ChatMessage::system(
+        ChatMessage::system(with_reply_language(
             "你帮助用户为笔记选择标签。优先复用用户已有的标签体系，可使用多级标签（如 读书/小说）。\
 标签不含空格和 # 号。只输出 JSON 字符串数组，1-3 个标签，例如 [\"读书/小说\",\"想法\"]。",
-        ),
+        )),
         ChatMessage::user(format!(
             "已有标签：{}\n\n笔记内容：\n{}",
             if tags.is_empty() { "（暂无）".to_string() } else { tags.join(" ") },
@@ -509,10 +517,10 @@ pub fn peak_naming_messages(groups: &[Vec<String>]) -> Vec<ChatMessage> {
         body.push('\n');
     }
     vec![
-        ChatMessage::system(
+        ChatMessage::system(with_reply_language(
             "下面每组笔记代表用户反复思考的一个主题山峰。为每组起一个 2-8 个字、有画面感的主题名。\
 只输出 JSON 字符串数组，顺序与组一一对应。",
-        ),
+        )),
         ChatMessage::user(body),
     ]
 }

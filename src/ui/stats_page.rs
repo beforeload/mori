@@ -119,7 +119,7 @@ impl StatsPage {
             .map(|_| None)
             .chain((0..count).map(|d| Some(first + chrono::Duration::days(d as i64))))
             .collect();
-        panel("月统计", cx)
+        panel(t!("月统计"), cx)
             .child(
                 h_flex()
                     .gap_2()
@@ -149,7 +149,7 @@ impl StatsPage {
                         div()
                             .text_xs()
                             .text_color(theme.muted_foreground)
-                            .child(format!(
+                            .child(t!(
                                 "{} 条笔记 · {} 字 · {} 天 · 单日最多 {} 条 / {} 字",
                                 stat.memos, stat.chars, stat.days, stat.max_day_memos, stat.max_day_chars
                             )),
@@ -215,7 +215,7 @@ impl StatsPage {
         let chars: usize = months.iter().map(|m| m.chars).sum();
         let active_days = days.keys().filter(|d| d.year() == year).count();
         let cell = px(10.);
-        panel("年统计", cx)
+        panel(t!("年统计"), cx)
             .child(
                 h_flex()
                     .gap_2()
@@ -229,7 +229,7 @@ impl StatsPage {
                                 cx.notify();
                             })),
                     )
-                    .child(div().text_sm().font_medium().child(format!("{year} 年")))
+                    .child(div().text_sm().font_medium().child(t!("{} 年", year)))
                     .child(
                         Button::new("year-next")
                             .ghost()
@@ -245,7 +245,7 @@ impl StatsPage {
                         div()
                             .text_xs()
                             .text_color(theme.muted_foreground)
-                            .child(format!("累计 {total} 条笔记 · {chars} 字 · 记录 {active_days} 天")),
+                            .child(t!("累计 {} 条笔记 · {} 字 · 记录 {} 天", total, chars, active_days)),
                     ),
             )
             .child(
@@ -279,7 +279,7 @@ impl StatsPage {
                 &months
                     .iter()
                     .enumerate()
-                    .map(|(i, m)| (format!("{}月", i + 1), m.count))
+                    .map(|(i, m)| (t!("{}月", i + 1), m.count))
                     .collect::<Vec<_>>(),
                 theme.green.opacity(0.7),
                 cx,
@@ -324,7 +324,7 @@ impl Render for StatsPage {
             .weekdays
             .iter()
             .enumerate()
-            .map(|(i, c)| (format!("周{}", weekday_label(i)), *c))
+            .map(|(i, c)| (t!("周{}", weekday_label(i)), *c))
             .collect();
 
         v_flex()
@@ -339,15 +339,15 @@ impl Render for StatsPage {
                     .px_6()
                     .py_4()
                     .gap_4()
-                    .child(h_flex().gap_1().children(sidebar_toggle(cx)).child(div().text_lg().font_semibold().child("记录统计")))
+                    .child(h_flex().gap_1().children(sidebar_toggle(cx)).child(div().text_lg().font_semibold().child(t!("记录统计"))))
                     .child(
                         h_flex()
                             .gap_3()
-                            .child(big(overview.memos.to_string(), "累计笔记"))
-                            .child(big(overview.chars.to_string(), "累计字数"))
-                            .child(big(overview.tags.to_string(), "标签"))
-                            .child(big(overview.days.to_string(), "记录天数"))
-                            .child(big(overview.streak.to_string(), "连续记录")),
+                            .child(big(overview.memos.to_string(), t!("累计笔记")))
+                            .child(big(overview.chars.to_string(), t!("累计字数")))
+                            .child(big(overview.tags.to_string(), t!("标签")))
+                            .child(big(overview.days.to_string(), t!("记录天数")))
+                            .child(big(overview.streak.to_string(), t!("连续记录"))),
                     )
                     .child(self.render_month(cx))
                     .child(self.render_year(cx))
@@ -355,20 +355,20 @@ impl Render for StatsPage {
                         h_flex()
                             .gap_4()
                             .items_start()
-                            .child(div().flex_1().child(panel("时间分布（24 小时）", cx).child(vertical_bars("hours", &hours, theme.blue.opacity(0.7), cx))))
-                            .child(div().flex_1().child(panel("星期分布", cx).child(vertical_bars("weekdays", &weekdays, theme.blue.opacity(0.7), cx)))),
+                            .child(div().flex_1().child(panel(t!("时间分布（24 小时）"), cx).child(vertical_bars("hours", &hours, theme.blue.opacity(0.7), cx))))
+                            .child(div().flex_1().child(panel(t!("星期分布"), cx).child(vertical_bars("weekdays", &weekdays, theme.blue.opacity(0.7), cx)))),
                     )
                     .child(
                         h_flex()
                             .gap_4()
                             .items_start()
-                            .child(div().flex_1().child(panel("字数分布", cx).child(horizontal_bars(&dist.lengths, theme.magenta.opacity(0.6), cx))))
-                            .child(div().flex_1().child(panel("媒体分布", cx).child(horizontal_bars(&dist.media, theme.cyan.opacity(0.7), cx))))
-                            .child(div().flex_1().child(panel("记录来源", cx).child(horizontal_bars(&dist.sources, theme.yellow.opacity(0.8), cx)))),
+                            .child(div().flex_1().child(panel(t!("字数分布"), cx).child(horizontal_bars(&dist.lengths, theme.magenta.opacity(0.6), cx))))
+                            .child(div().flex_1().child(panel(t!("媒体分布"), cx).child(horizontal_bars(&dist.media, theme.cyan.opacity(0.7), cx))))
+                            .child(div().flex_1().child(panel(t!("记录来源"), cx).child(horizontal_bars(&dist.sources, theme.yellow.opacity(0.8), cx)))),
                     )
                     .child(
-                        panel("标签排行（一级标签）", cx).child(if top_tags.is_empty() {
-                            div().text_sm().text_color(theme.muted_foreground).child("还没有标签").into_any_element()
+                        panel(t!("标签排行（一级标签）"), cx).child(if top_tags.is_empty() {
+                            div().text_sm().text_color(theme.muted_foreground).child(t!("还没有标签")).into_any_element()
                         } else {
                             horizontal_bars(&top_tags, theme.green.opacity(0.7), cx)
                         }),

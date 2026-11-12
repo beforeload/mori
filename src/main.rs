@@ -1,3 +1,5 @@
+#[macro_use]
+mod i18n;
 mod api_server;
 mod core;
 mod mcp;
@@ -16,46 +18,46 @@ use ui::workspace::{
     Workspace,
 };
 
-fn set_menus(cx: &mut gpui_kit::App) {
+pub fn install_menus(cx: &mut gpui_kit::App) {
     cx.set_menus(vec![
         Menu {
-            name: "MindFlow".into(),
+            name: "Mori".into(),
             items: vec![
-                MenuItem::action("设置…", OpenSettings),
+                MenuItem::action(t!("设置…"), OpenSettings),
                 MenuItem::separator(),
-                MenuItem::action("锁定", LockApp),
+                MenuItem::action(t!("锁定"), LockApp),
                 MenuItem::separator(),
-                MenuItem::action("退出 MindFlow", Quit),
+                MenuItem::action(t!("退出 Mori"), Quit),
             ],
             disabled: false,
         },
         Menu {
-            name: "笔记".into(),
+            name: t!("笔记").into(),
             items: vec![
-                MenuItem::action("新建笔记", NewMemo),
-                MenuItem::action("搜索", FocusSearch),
-                MenuItem::action("回到全部笔记", GoHome),
+                MenuItem::action(t!("新建笔记"), NewMemo),
+                MenuItem::action(t!("搜索"), FocusSearch),
+                MenuItem::action(t!("回到全部笔记"), GoHome),
             ],
             disabled: false,
         },
         Menu {
-            name: "编辑".into(),
+            name: t!("编辑").into(),
             items: vec![
-                MenuItem::os_action("撤销", Undo, OsAction::Undo),
-                MenuItem::os_action("重做", Redo, OsAction::Redo),
+                MenuItem::os_action(t!("撤销"), Undo, OsAction::Undo),
+                MenuItem::os_action(t!("重做"), Redo, OsAction::Redo),
                 MenuItem::separator(),
-                MenuItem::os_action("剪切", Cut, OsAction::Cut),
-                MenuItem::os_action("复制", Copy, OsAction::Copy),
-                MenuItem::os_action("粘贴", Paste, OsAction::Paste),
-                MenuItem::os_action("全选", SelectAll, OsAction::SelectAll),
+                MenuItem::os_action(t!("剪切"), Cut, OsAction::Cut),
+                MenuItem::os_action(t!("复制"), Copy, OsAction::Copy),
+                MenuItem::os_action(t!("粘贴"), Paste, OsAction::Paste),
+                MenuItem::os_action(t!("全选"), SelectAll, OsAction::SelectAll),
             ],
             disabled: false,
         },
         Menu {
-            name: "显示".into(),
+            name: t!("显示").into(),
             items: vec![
-                MenuItem::action("显示/隐藏侧边栏", ToggleSidebar),
-                MenuItem::action("切换深色模式", ToggleDarkMode),
+                MenuItem::action(t!("显示/隐藏侧边栏"), ToggleSidebar),
+                MenuItem::action(t!("切换深色模式"), ToggleDarkMode),
             ],
             disabled: false,
         },
@@ -65,7 +67,7 @@ fn set_menus(cx: &mut gpui_kit::App) {
 fn main() {
     if std::env::args().any(|a| a == "--mcp") {
         if let Err(err) = mcp::run() {
-            eprintln!("MindFlow MCP 服务器出错：{err:#}");
+            eprintln!("Mori MCP 服务器出错：{err:#}");
             std::process::exit(1);
         }
         return;
@@ -74,7 +76,7 @@ fn main() {
     let mut store = match core::store::Store::open_default() {
         Ok(store) => store,
         Err(err) => {
-            eprintln!("无法打开 MindFlow 数据库：{err:#}");
+            eprintln!("无法打开 Mori 数据库：{err:#}");
             std::process::exit(1);
         }
     };
@@ -96,10 +98,11 @@ fn main() {
         .with_assets(gpui_kit::assets::AllAssets)
         .run(move |cx| {
             gpui_kit::init(cx);
-            gpui_kit::component::set_locale("zh-CN");
+            let lang = store.settings().language;
+            gpui_kit::component::set_locale(lang.gpui_code());
             ui::workspace::bind_keys(cx);
             cx.on_action(|_: &Quit, cx| cx.quit());
-            set_menus(cx);
+            install_menus(cx);
 
             let settings = store.settings().clone();
             Theme::update(cx, |theme| theme.font_size = px(settings.font_size.clamp(12., 22.)));
@@ -109,7 +112,7 @@ fn main() {
             let options = WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
                 titlebar: Some(TitlebarOptions {
-                    title: Some("MindFlow".into()),
+                    title: Some("Mori".into()),
                     appears_transparent: true,
                     traffic_light_position: Some(point(px(16.), px(16.))),
                 }),

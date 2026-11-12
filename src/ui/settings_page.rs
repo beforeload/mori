@@ -58,15 +58,15 @@ impl SettingsSection {
 
     fn label(self) -> &'static str {
         match self {
-            SettingsSection::Account => "账号",
-            SettingsSection::Data => "数据与存储",
-            SettingsSection::General => "通用",
-            SettingsSection::Shortcuts => "快捷键",
-            SettingsSection::Review => "每日回顾",
-            SettingsSection::Ai => "AI 服务",
-            SettingsSection::Open => "MCP / API",
-            SettingsSection::ImportExport => "导入导出",
-            SettingsSection::Lab => "实验室",
+            SettingsSection::Account => t!("账号"),
+            SettingsSection::Data => t!("数据与存储"),
+            SettingsSection::General => t!("通用"),
+            SettingsSection::Shortcuts => t!("快捷键"),
+            SettingsSection::Review => t!("每日回顾"),
+            SettingsSection::Ai => t!("AI 服务"),
+            SettingsSection::Open => t!("MCP / API"),
+            SettingsSection::ImportExport => t!("导入导出"),
+            SettingsSection::Lab => t!("实验室"),
         }
     }
 
@@ -92,32 +92,32 @@ struct Preset {
     embedding_model: &'static str,
 }
 
-const PRESETS: [Preset; 7] = [
+fn presets() -> [Preset; 7] { [
     Preset { name: "OpenAI", base_url: "https://api.openai.com/v1", chat_model: "gpt-4o-mini", embedding_model: "text-embedding-3-small" },
     Preset { name: "DeepSeek", base_url: "https://api.deepseek.com/v1", chat_model: "deepseek-chat", embedding_model: "" },
-    Preset { name: "通义千问", base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1", chat_model: "qwen-plus", embedding_model: "text-embedding-v3" },
+    Preset { name: t!("通义千问"), base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1", chat_model: "qwen-plus", embedding_model: "text-embedding-v3" },
     Preset { name: "Kimi", base_url: "https://api.moonshot.cn/v1", chat_model: "moonshot-v1-8k", embedding_model: "" },
-    Preset { name: "智谱 GLM", base_url: "https://open.bigmodel.cn/api/paas/v4", chat_model: "glm-4-flash", embedding_model: "embedding-3" },
-    Preset { name: "硅基流动", base_url: "https://api.siliconflow.cn/v1", chat_model: "Qwen/Qwen2.5-7B-Instruct", embedding_model: "BAAI/bge-m3" },
-    Preset { name: "Ollama 本地", base_url: "http://localhost:11434/v1", chat_model: "qwen2.5:7b", embedding_model: "nomic-embed-text" },
-];
+    Preset { name: t!("智谱 GLM"), base_url: "https://open.bigmodel.cn/api/paas/v4", chat_model: "glm-4-flash", embedding_model: "embedding-3" },
+    Preset { name: t!("硅基流动"), base_url: "https://api.siliconflow.cn/v1", chat_model: "Qwen/Qwen2.5-7B-Instruct", embedding_model: "BAAI/bge-m3" },
+    Preset { name: t!("Ollama 本地"), base_url: "http://localhost:11434/v1", chat_model: "qwen2.5:7b", embedding_model: "nomic-embed-text" },
+]}
 
-const SHORTCUTS: [(&str, &str); 14] = [
-    ("新建笔记", "⌘ N"),
-    ("快速输入（聚焦输入框）", "⌘ /"),
-    ("发布笔记 / 保存编辑", "⌘ ↩"),
-    ("编辑笔记", "双击卡片"),
-    ("加粗", "⌘ B"),
-    ("高亮", "⌘ ⇧ H"),
-    ("下划线", "⌘ U"),
-    ("搜索", "⌘ K"),
-    ("密码锁", "⌘ ⇧ L"),
-    ("侧边栏收缩/展开", "⌘ \\"),
-    ("回到首页", "⌘ ⇧ F"),
-    ("切换深色模式", "⌘ ⇧ D"),
-    ("关闭详情 / 覆盖页", "Esc"),
-    ("偏好设置", "⌘ ,"),
-];
+fn shortcuts() -> [(&'static str, &'static str); 14] { [
+    (t!("新建笔记"), "⌘ N"),
+    (t!("快速输入（聚焦输入框）"), "⌘ /"),
+    (t!("发布笔记 / 保存编辑"), "⌘ ↩"),
+    (t!("编辑笔记"), t!("双击卡片")),
+    (t!("加粗"), "⌘ B"),
+    (t!("高亮"), "⌘ ⇧ H"),
+    (t!("下划线"), "⌘ U"),
+    (t!("搜索"), "⌘ K"),
+    (t!("密码锁"), "⌘ ⇧ L"),
+    (t!("侧边栏收缩/展开"), "⌘ \\"),
+    (t!("回到首页"), "⌘ ⇧ F"),
+    (t!("切换深色模式"), "⌘ ⇧ D"),
+    (t!("关闭详情 / 覆盖页"), "Esc"),
+    (t!("偏好设置"), "⌘ ,"),
+]}
 
 const FONT_SIZES: [f32; 7] = [12., 13., 14., 15., 16., 18., 20.];
 const REVIEW_COUNTS: [usize; 6] = [4, 8, 12, 16, 20, 24];
@@ -224,25 +224,25 @@ impl SettingsPage {
             let placeholder = placeholder.to_string();
             cx.new(|cx| InputState::new(window, cx).placeholder(placeholder).default_value(value))
         };
-        let nickname = input(settings.nickname.clone(), "昵称", window, cx);
+        let nickname = input(settings.nickname.clone(), t!("昵称"), window, cx);
         let base_url = input(settings.ai.base_url.clone(), "https://api.openai.com/v1", window, cx);
         let api_key = cx.new(|cx| {
             InputState::new(window, cx)
                 .masked(true)
-                .placeholder("sk-…（本地模型可留空）")
+                .placeholder(t!("sk-…（本地模型可留空）"))
                 .default_value(settings.ai.api_key.clone())
         });
         let chat_model = input(settings.ai.chat_model.clone(), "gpt-4o-mini", window, cx);
-        let embedding_model = input(settings.ai.embedding_model.clone(), "可选，留空则使用本地语义引擎", window, cx);
+        let embedding_model = input(settings.ai.embedding_model.clone(), t!("可选，留空则使用本地语义引擎"), window, cx);
         let temperature = input(format!("{}", settings.ai.temperature), "0.7", window, cx);
-        let review_tags = input(settings.review.tags.join(" "), "标签，空格分隔", window, cx);
-        let passcode = cx.new(|cx| InputState::new(window, cx).masked(true).placeholder("新密码（至少 4 位）"));
-        let passcode_confirm = cx.new(|cx| InputState::new(window, cx).masked(true).placeholder("再次输入"));
+        let review_tags = input(settings.review.tags.join(" "), t!("标签，空格分隔"), window, cx);
+        let passcode = cx.new(|cx| InputState::new(window, cx).masked(true).placeholder(t!("新密码（至少 4 位）")));
+        let passcode_confirm = cx.new(|cx| InputState::new(window, cx).masked(true).placeholder(t!("再次输入")));
         let api_port = input(settings.api_port.to_string(), "17321", window, cx);
         let wechat_text = cx.new(|cx| {
             TextareaState::new(window, cx)
                 .rows(4)
-                .placeholder("在微信读书网页版打开书籍 → 笔记 → 复制全部笔记，然后粘贴到这里")
+                .placeholder(t!("在微信读书网页版打开书籍 → 笔记 → 复制全部笔记，然后粘贴到这里"))
         });
         let save_on_blur = |state: &Entity<InputState>, event: &InputEvent| {
             matches!(event, InputEvent::Blur | InputEvent::PressEnter { .. }).then(|| state.clone())
@@ -326,7 +326,7 @@ impl SettingsPage {
         let cfg = self.ai_config(cx);
         self.synced_ai = cfg.clone();
         update_settings(cx, |s| s.ai = cfg);
-        window.push_notification(Notification::success("AI 服务设置已保存"), cx);
+        window.push_notification(Notification::success(t!("AI 服务设置已保存")), cx);
     }
 
     fn apply_preset(&mut self, preset: &Preset, window: &mut Window, cx: &mut Context<Self>) {
@@ -349,7 +349,7 @@ impl SettingsPage {
                 this.test_result = Some(match result {
                     Some(Ok(s)) => Ok(s),
                     Some(Err(e)) => Err(e.to_string()),
-                    None => Err("测试失败".into()),
+                    None => Err(t!("测试失败").into()),
                 });
                 cx.notify();
             });
@@ -360,11 +360,11 @@ impl SettingsPage {
         let a = self.passcode.read(cx).value().to_string();
         let b = self.passcode_confirm.read(cx).value().to_string();
         if a.chars().count() < 4 {
-            window.push_notification(Notification::warning("密码至少需要 4 位"), cx);
+            window.push_notification(Notification::warning(t!("密码至少需要 4 位")), cx);
             return;
         }
         if a != b {
-            window.push_notification(Notification::warning("两次输入的密码不一致"), cx);
+            window.push_notification(Notification::warning(t!("两次输入的密码不一致")), cx);
             return;
         }
         let salt = new_id();
@@ -377,7 +377,7 @@ impl SettingsPage {
         for input in [&self.passcode, &self.passcode_confirm] {
             input.update(cx, |s, cx| s.set_value("", window, cx));
         }
-        window.push_notification(Notification::success("密码锁已开启，按 ⌘⇧L 可随时锁定"), cx);
+        window.push_notification(Notification::success(t!("密码锁已开启，按 ⌘⇧L 可随时锁定")), cx);
     }
 
     fn import_files(&mut self, _: &mut Window, cx: &mut Context<Self>) {
@@ -386,7 +386,7 @@ impl SettingsPage {
             files: true,
             directories: false,
             multiple: true,
-            prompt: Some("导入".into()),
+            prompt: Some(t!("导入").into()),
         });
         cx.spawn(async move |_, cx| {
             let Ok(Ok(Some(paths))) = paths.await else {
@@ -397,7 +397,7 @@ impl SettingsPage {
                 let result = library.update(cx, |lib, cx| lib.mutate(cx, |s| io::import_files(s, &paths, skip)));
                 let message = match result {
                     Ok(report) => report.summary(),
-                    Err(e) => format!("导入失败：{e}"),
+                    Err(e) => t!("导入失败：{}", e),
                 };
                 notify_active(cx, message);
             });
@@ -420,7 +420,7 @@ impl SettingsPage {
 
     fn export(&mut self, kind: &'static str, cx: &mut Context<Self>) {
         let dir = dirs::document_dir().or_else(dirs::home_dir).unwrap_or_default();
-        let name = format!("mindflow-{}.{kind}", time::fmt_day(time::today()));
+        let name = format!("mori-{}.{kind}", time::fmt_day(time::today()));
         let path = cx.prompt_for_new_path(&dir, Some(&name));
         cx.spawn(async move |_, cx| {
             let Ok(Ok(Some(path))) = path.await else {
@@ -437,8 +437,8 @@ impl SettingsPage {
                 notify_active(
                     cx,
                     match result {
-                        Ok(n) => format!("已导出 {n} 条笔记到 {}", path.display()),
-                        Err(e) => format!("导出失败：{e}"),
+                        Ok(n) => t!("已导出 {} 条笔记到 {}", n, path.display()),
+                        Err(e) => t!("导出失败：{}", e),
                     },
                 );
             });
@@ -447,28 +447,28 @@ impl SettingsPage {
     }
 
     fn backup_database(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let source = Library::global(cx).read(cx).store().data_dir().join("mindflow.db");
-        let dir = dirs::download_dir().or_else(dirs::home_dir).unwrap_or_default().join("MindFlow");
-        let target = dir.join(format!("mindflow-backup-{}.db", chrono::Local::now().format("%Y%m%d-%H%M%S")));
+        let source = crate::core::store::database_path(Library::global(cx).read(cx).store().data_dir());
+        let dir = dirs::download_dir().or_else(dirs::home_dir).unwrap_or_default().join("Mori");
+        let target = dir.join(format!("mori-backup-{}.db", chrono::Local::now().format("%Y%m%d-%H%M%S")));
         let result = std::fs::create_dir_all(&dir).and_then(|_| std::fs::copy(&source, &target));
         match result {
             Ok(_) => {
-                window.push_notification(Notification::success(format!("已备份到 {}", target.display())), cx);
+                window.push_notification(Notification::success(t!("已备份到 {}", target.display())), cx);
                 cx.reveal_path(&target);
             }
-            Err(e) => window.push_notification(Notification::warning(format!("备份失败：{e}")), cx),
+            Err(e) => window.push_notification(Notification::warning(t!("备份失败：{}", e)), cx),
         }
     }
 
     fn mcp_config(&self, cx: &App) -> String {
-        let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_else(|_| "mindflow".into());
+        let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_else(|_| "mori".into());
         let data_dir = Library::global(cx).read(cx).store().data_dir().display().to_string();
         serde_json::to_string_pretty(&serde_json::json!({
             "mcpServers": {
-                "mindflow": {
+                "mori": {
                     "command": exe,
                     "args": ["--mcp"],
-                    "env": {"MINDFLOW_DATA_DIR": data_dir}
+                    "env": {"MORI_DATA_DIR": data_dir}
                 }
             }
         }))
@@ -506,30 +506,30 @@ impl SettingsPage {
                                     .child(h_flex().gap_1p5().child(div().font_semibold().child(settings.nickname.clone())).child(
                                         div().px_1().rounded(px(3.)).bg(s.accent_soft).text_color(s.accent).text_size(px(10.)).font_bold().child("PRO"),
                                     ))
-                                    .child(div().text_xs().text_color(theme.muted_foreground).child("本地版 · 全部功能已解锁 · 数据只保存在这台电脑上")),
+                                    .child(div().text_xs().text_color(theme.muted_foreground).child(t!("本地版 · 全部功能已解锁 · 数据只保存在这台电脑上"))),
                             ),
                     ),
-                    row("昵称", div().w(px(220.)).child(Input::new(&self.nickname).small())),
+                    row(t!("昵称"), div().w(px(220.)).child(Input::new(&self.nickname).small())),
                 ],
                 cx,
             ))
-            .child(heading("密码锁", cx))
+            .child(heading(t!("密码锁"), cx))
             .child(group(
                 vec![
                     row(
-                        if enabled { "密码锁已开启" } else { "密码锁未开启" },
+                        if enabled { t!("密码锁已开启") } else { t!("密码锁未开启") },
                         h_flex().gap_2().when(enabled, |this| {
-                            this.child(Button::new("lock-disable").outline().small().label("关闭密码锁").on_click(|_, window, cx| {
+                            this.child(Button::new("lock-disable").outline().small().label(t!("关闭密码锁")).on_click(|_, window, cx| {
                                 update_settings(cx, |s| {
                                     s.lock_enabled = false;
                                     s.lock_hash.clear();
                                 });
-                                window.push_notification("已关闭密码锁", cx);
+                                window.push_notification(t!("已关闭密码锁"), cx);
                             }))
                         }),
                     ),
                     row(
-                        if enabled { "修改密码" } else { "设置密码" },
+                        if enabled { t!("修改密码") } else { t!("设置密码") },
                         h_flex()
                             .gap_2()
                             .child(div().w(px(150.)).child(Input::new(&self.passcode).small()))
@@ -538,14 +538,14 @@ impl SettingsPage {
                                 Button::new("lock-enable")
                                     .primary()
                                     .small()
-                                    .label(if enabled { "更新" } else { "开启" })
+                                    .label(if enabled { t!("更新") } else { t!("开启") })
                                     .on_click(cx.listener(|this, _, window, cx| this.set_passcode(window, cx))),
                             ),
                     ),
                 ],
                 cx,
             ))
-            .child(caption("开启后，每次启动 MindFlow 或按 ⌘⇧L 都需要输入密码。", cx))
+            .child(caption(t!("开启后，每次启动 Mori 或按 ⌘⇧L 都需要输入密码。"), cx))
             .into_any_element()
     }
 
@@ -553,7 +553,8 @@ impl SettingsPage {
         let library = Library::global(cx);
         let lib = library.read(cx);
         let data_dir = lib.store().data_dir().to_path_buf();
-        let db_size = std::fs::metadata(data_dir.join("mindflow.db")).map(|m| m.len()).unwrap_or(0);
+        let db_file = crate::core::store::database_path(&data_dir);
+        let db_size = std::fs::metadata(&db_file).map(|m| m.len()).unwrap_or(0);
         let (image_count, image_size) = std::fs::read_dir(data_dir.join("images"))
             .map(|entries| {
                 entries.flatten().fold((0usize, 0u64), |(n, size), e| {
@@ -564,29 +565,29 @@ impl SettingsPage {
         let mb = |bytes: u64| format!("{:.1} MB", bytes as f64 / 1_048_576.0);
         let overview = lib.overview().clone();
         let trashed = lib.store().trashed_memos().len();
-        let reveal = data_dir.join("mindflow.db");
+        let reveal = db_file;
         v_flex()
             .gap_3()
             .child(group(
                 vec![
-                    row("笔记", div().text_sm().child(format!("{} 条（回收站 {trashed} 条）", overview.memos))),
-                    row("数据库", div().text_sm().child(mb(db_size))),
-                    row("图片", div().text_sm().child(format!("{image_count} 张 · {}", mb(image_size)))),
+                    row(t!("笔记"), div().text_sm().child(t!("{} 条（回收站 {} 条）", overview.memos, trashed))),
+                    row(t!("数据库"), div().text_sm().child(mb(db_size))),
+                    row(t!("图片"), div().text_sm().child(t!("{} 张 · {}", image_count, mb(image_size)))),
                     row(
-                        "存储位置",
+                        t!("存储位置"),
                         h_flex()
                             .gap_2()
                             .child(div().max_w(px(260.)).truncate().text_xs().text_color(cx.theme().muted_foreground).child(data_dir.display().to_string()))
                             .child(Button::new("reveal-data").ghost().small().icon(Icon::new(Lucide::FolderOpen)).on_click(move |_, _, cx| cx.reveal_path(&reveal))),
                     ),
                     row(
-                        "备份数据库",
-                        Button::new("backup-db").outline().small().label("立即备份").on_click(cx.listener(|this, _, window, cx| this.backup_database(window, cx))),
+                        t!("备份数据库"),
+                        Button::new("backup-db").outline().small().label(t!("立即备份")).on_click(cx.listener(|this, _, window, cx| this.backup_database(window, cx))),
                     ),
                 ],
                 cx,
             ))
-            .child(caption("MindFlow 是本地优先的：笔记、图片、AI 记录都保存在本机，不会上传到任何服务器。调用 AI 服务时只会发送当次需要的笔记内容。", cx))
+            .child(caption(t!("Mori 是本地优先的：笔记、图片、AI 记录都保存在本机，不会上传到任何服务器。调用 AI 服务时只会发送当次需要的笔记内容。"), cx))
             .into_any_element()
     }
 
@@ -642,37 +643,57 @@ impl SettingsPage {
                 (o.label().to_string(), o == current_sort, action)
             })
             .collect();
+        let language_choices: Vec<Choice> = crate::i18n::Language::ALL
+            .into_iter()
+            .map(|lang| {
+                let action: Action = Rc::new(move |_, cx| {
+                    crate::i18n::set_language(lang);
+                    update_settings(cx, |s| s.language = lang);
+                    gpui_kit::component::set_locale(lang.gpui_code());
+                    crate::install_menus(cx);
+                });
+                (lang.native_name().to_string(), lang == settings.language, action)
+            })
+            .collect();
         v_flex()
             .gap_3()
-            .child(heading("显示偏好", cx))
+            .child(heading(t!("语言"), cx))
+            .child(group(
+                vec![row(
+                    t!("界面语言"),
+                    picker("pick-language", settings.language.native_name().into(), language_choices, cx),
+                )],
+                cx,
+            ))
+            .child(heading(t!("显示偏好"), cx))
             .child(group(
                 vec![
-                    row("外观", picker("pick-appearance", settings.appearance.label().into(), appearance_choices, cx)),
-                    row("字体", picker("pick-font", settings.body_font.label().into(), font_choices, cx)),
-                    row("正文字体大小", picker("pick-size", format!("{}", settings.body_font_size), size_choices, cx)),
-                    row("正文字体行高", picker("pick-spacing", settings.line_spacing.label().into(), spacing_choices, cx)),
-                    row("显示热力图", switch("sw-heatmap", settings.show_heatmap, |s, v| s.show_heatmap = v)),
-                    row("显示笔记来源", switch("sw-source", settings.show_source, |s, v| s.show_source = v)),
-                    row("首页显示 AI Agent 入口", switch("sw-agent", settings.show_agent_button, |s, v| s.show_agent_button = v)),
+                    row(t!("外观"), picker("pick-appearance", settings.appearance.label().into(), appearance_choices, cx)),
+                    row(t!("字体"), picker("pick-font", settings.body_font.label().into(), font_choices, cx)),
+                    row(t!("正文字体大小"), picker("pick-size", format!("{}", settings.body_font_size), size_choices, cx)),
+                    row(t!("正文字体行高"), picker("pick-spacing", settings.line_spacing.label().into(), spacing_choices, cx)),
+                    row(t!("显示热力图"), switch("sw-heatmap", settings.show_heatmap, |s, v| s.show_heatmap = v)),
+                    row(t!("显示笔记来源"), switch("sw-source", settings.show_source, |s, v| s.show_source = v)),
+                    row(t!("首页显示 AI Agent 入口"), switch("sw-agent", settings.show_agent_button, |s, v| s.show_agent_button = v)),
                 ],
                 cx,
             ))
             .child(
                 v_flex()
                     .gap_0p5()
-                    .child(caption("API：通过本地 API 接口或快捷指令自动写入的内容", cx))
-                    .child(caption("MCP / AI：通过 MCP 服务或 AI 对话写入的内容", cx)),
+                    .child(caption(t!("API：通过本地 API 接口或快捷指令自动写入的内容"), cx))
+                    .child(caption(t!("MCP / AI：通过 MCP 服务或 AI 对话写入的内容"), cx)),
             )
-            .child(heading("笔记", cx))
+            .child(heading(t!("笔记"), cx))
             .child(group(
                 vec![
-                    row("笔记折叠", switch("sw-fold", settings.fold_long_memos, |s, v| s.fold_long_memos = v)),
-                    row("显示批注关系", switch("sw-backlinks", settings.show_backlinks, |s, v| s.show_backlinks = v)),
-                    row("默认排序", picker("pick-sort", current_sort.label().into(), sort_choices, cx)),
+                    row(t!("笔记折叠"), switch("sw-fold", settings.fold_long_memos, |s, v| s.fold_long_memos = v)),
+                    row(t!("显示批注关系"), switch("sw-backlinks", settings.show_backlinks, |s, v| s.show_backlinks = v)),
+                    row(t!("默认排序"), picker("pick-sort", current_sort.label().into(), sort_choices, cx)),
                 ],
                 cx,
             ))
-            .child(caption("笔记折叠：超过 10 行的笔记默认收起，点击「展开」查看全文。", cx))
+            .child(caption(t!("笔记折叠：超过 10 行的笔记默认收起，点击「展开」查看全文。"), cx))
             .into_any_element()
     }
 
@@ -680,7 +701,7 @@ impl SettingsPage {
         let mono = cx.theme().mono_font_family.clone();
         let muted = cx.theme().muted_foreground;
         group(
-            SHORTCUTS
+            shortcuts()
                 .iter()
                 .map(|(desc, key)| row(desc, div().text_sm().font_family(mono.clone()).text_color(muted).child(key.to_string())))
                 .collect(),
@@ -693,12 +714,12 @@ impl SettingsPage {
         let settings = Library::global(cx).read(cx).settings().clone();
         let cfg = settings.review.clone();
         let scopes = [
-            (ReviewScope::All, "全部内容"),
-            (ReviewScope::IncludeTags, "包含指定标签"),
-            (ReviewScope::ExcludeTags, "排除指定标签"),
-            (ReviewScope::Untagged, "无标签"),
+            (ReviewScope::All, t!("全部内容")),
+            (ReviewScope::IncludeTags, t!("包含指定标签")),
+            (ReviewScope::ExcludeTags, t!("排除指定标签")),
+            (ReviewScope::Untagged, t!("无标签")),
         ];
-        let scope_label = scopes.iter().find(|(s, _)| *s == cfg.scope).map(|(_, l)| *l).unwrap_or("全部内容");
+        let scope_label = scopes.iter().find(|(s, _)| *s == cfg.scope).map(|(_, l)| *l).unwrap_or(t!("全部内容"));
         let scope_choices: Vec<Choice> = scopes
             .iter()
             .map(|&(scope, label)| {
@@ -717,22 +738,22 @@ impl SettingsPage {
             .iter()
             .map(|&n| {
                 let action: Action = Rc::new(move |_, cx| update_settings(cx, |s| s.review.count = n));
-                (format!("{n} 条/天"), n == cfg.count, action)
+                (t!("{} 条/天", n), n == cfg.count, action)
             })
             .collect();
         let needs_tags = matches!(cfg.scope, ReviewScope::IncludeTags | ReviewScope::ExcludeTags);
-        let mut rows = vec![row("内容范围", picker("pick-review-scope", scope_label.into(), scope_choices, cx))];
+        let mut rows = vec![row(t!("内容范围"), picker("pick-review-scope", scope_label.into(), scope_choices, cx))];
         if needs_tags {
-            rows.push(row("标签", div().w(px(240.)).child(Input::new(&self.review_tags).small())));
+            rows.push(row(t!("标签"), div().w(px(240.)).child(Input::new(&self.review_tags).small())));
         }
-        rows.push(row("时间范围", picker("pick-review-range", cfg.range.label().into(), range_choices, cx)));
-        rows.push(row("回顾数量", picker("pick-review-count", format!("{} 条/天", cfg.count), count_choices, cx)));
+        rows.push(row(t!("时间范围"), picker("pick-review-range", cfg.range.label().into(), range_choices, cx)));
+        rows.push(row(t!("回顾数量"), picker("pick-review-count", t!("{} 条/天", cfg.count), count_choices, cx)));
         v_flex()
             .gap_3()
             .child(group(rows, cx))
-            .child(caption("默认「全部内容 + 全部时间 + 8 条/天」。每天的回顾内容固定，在回顾页点「换一批」可重新抽取。", cx))
+            .child(caption(t!("默认「全部内容 + 全部时间 + 8 条/天」。每天的回顾内容固定，在回顾页点「换一批」可重新抽取。"), cx))
             .child(
-                h_flex().child(Button::new("goto-review").outline().small().label("打开每日回顾").on_click(|_, window, cx| {
+                h_flex().child(Button::new("goto-review").outline().small().label(t!("打开每日回顾")).on_click(|_, window, cx| {
                     window.close_dialog(cx);
                     dispatch(Command::Navigate(Route::Review), window, cx);
                 })),
@@ -747,37 +768,37 @@ impl SettingsPage {
         let index = lib.index();
         let theme = cx.theme().clone();
         let embedding_text = match &status {
-            EmbeddingStatus::Disabled => format!("使用本地语义引擎（离线、免费），已索引 {} 条笔记", index.len()),
-            EmbeddingStatus::Idle => format!("远程 Embedding 已同步 {} / {} 条笔记", index.dense_count(), index.len()),
-            EmbeddingStatus::Running { done, total } => format!("正在同步 Embedding：{done} / {total}"),
-            EmbeddingStatus::Failed(e) => format!("Embedding 同步失败：{e}"),
+            EmbeddingStatus::Disabled => t!("使用本地语义引擎（离线、免费），已索引 {} 条笔记", index.len()),
+            EmbeddingStatus::Idle => t!("远程 Embedding 已同步 {} / {} 条笔记", index.dense_count(), index.len()),
+            EmbeddingStatus::Running { done, total } => t!("正在同步 Embedding：{} / {}", done, total),
+            EmbeddingStatus::Failed(e) => t!("Embedding 同步失败：{}", e),
         };
         let can_resync = !matches!(status, EmbeddingStatus::Disabled | EmbeddingStatus::Running { .. });
         v_flex()
             .gap_3()
-            .child(caption("兼容 OpenAI 接口的任意服务。API Key 只保存在本机。", cx))
-            .child(h_flex().flex_wrap().gap_1p5().children(PRESETS.iter().enumerate().map(|(i, p)| {
+            .child(caption(t!("兼容 OpenAI 接口的任意服务。API Key 只保存在本机。"), cx))
+            .child(h_flex().flex_wrap().gap_1p5().children(presets().into_iter().enumerate().map(|(i, p)| {
                 Button::new(("preset", i))
                     .outline()
                     .xsmall()
                     .label(p.name)
-                    .on_click(cx.listener(move |this, _, window, cx| this.apply_preset(&PRESETS[i], window, cx)))
+                    .on_click(cx.listener(move |this, _, window, cx| this.apply_preset(&presets()[i], window, cx)))
             })))
             .child(group(
                 vec![
-                    row("接口地址", div().w(px(320.)).child(Input::new(&self.base_url).small())),
+                    row(t!("接口地址"), div().w(px(320.)).child(Input::new(&self.base_url).small())),
                     row("API Key", div().w(px(320.)).child(Input::new(&self.api_key).small().mask_toggle())),
-                    row("对话模型", div().w(px(320.)).child(Input::new(&self.chat_model).small())),
-                    row("Embedding 模型", div().w(px(320.)).child(Input::new(&self.embedding_model).small())),
-                    row("温度", div().w(px(100.)).child(Input::new(&self.temperature).small())),
+                    row(t!("对话模型"), div().w(px(320.)).child(Input::new(&self.chat_model).small())),
+                    row(t!("Embedding 模型"), div().w(px(320.)).child(Input::new(&self.embedding_model).small())),
+                    row(t!("温度"), div().w(px(100.)).child(Input::new(&self.temperature).small())),
                 ],
                 cx,
             ))
             .child(
                 h_flex()
                     .gap_2()
-                    .child(Button::new("ai-save").primary().small().label("保存").on_click(cx.listener(|this, _, window, cx| this.save_ai(window, cx))))
-                    .child(Button::new("ai-test").outline().small().label("测试连接").loading(self.testing).on_click(cx.listener(|this, _, _, cx| this.test_ai(cx))))
+                    .child(Button::new("ai-save").primary().small().label(t!("保存")).on_click(cx.listener(|this, _, window, cx| this.save_ai(window, cx))))
+                    .child(Button::new("ai-test").outline().small().label(t!("测试连接")).loading(self.testing).on_click(cx.listener(|this, _, _, cx| this.test_ai(cx))))
                     .when_some(self.test_result.clone(), |this, result| {
                         this.child(
                             div()
@@ -796,14 +817,14 @@ impl SettingsPage {
                     row(
                         &embedding_text,
                         h_flex().when(can_resync, |this| {
-                            this.child(Button::new("embedding-resync").ghost().small().label("重新同步").on_click(|_, _, cx| {
+                            this.child(Button::new("embedding-resync").ghost().small().label(t!("重新同步")).on_click(|_, _, cx| {
                                 Library::global(cx).update(cx, |lib, cx| lib.resync_embeddings(cx));
                             }))
                         }),
                     ),
                     row(
-                        "AI 记忆档案",
-                        Button::new("open-memory").ghost().small().label("打开").on_click(|_, window, cx| {
+                        t!("AI 记忆档案"),
+                        Button::new("open-memory").ghost().small().label(t!("打开")).on_click(|_, window, cx| {
                             window.close_dialog(cx);
                             dispatch(Command::Navigate(Route::Memory), window, cx);
                         }),
@@ -839,21 +860,21 @@ impl SettingsPage {
         };
         v_flex()
             .gap_3()
-            .child(heading("MCP 服务", cx))
-            .child(caption("让 Claude、Cursor、Cherry Studio 等 AI 工具搜索、读取、创建笔记并读取记忆档案（共 10 个工具）。", cx))
+            .child(heading(t!("MCP 服务"), cx))
+            .child(caption(t!("让 Claude、Cursor、Cherry Studio 等 AI 工具搜索、读取、创建笔记并读取记忆档案（共 10 个工具）。"), cx))
             .child(code(mcp))
-            .child(h_flex().child(Button::new("copy-mcp").outline().small().icon(Icon::new(Lucide::Copy)).label("复制 MCP 配置").on_click(move |_, window, cx| {
+            .child(h_flex().child(Button::new("copy-mcp").outline().small().icon(Icon::new(Lucide::Copy)).label(t!("复制 MCP 配置")).on_click(move |_, window, cx| {
                 cx.write_to_clipboard(ClipboardItem::new_string(mcp_copy.clone()));
-                window.push_notification("已复制，粘贴到 AI 工具的 MCP 配置中即可", cx);
+                window.push_notification(t!("已复制，粘贴到 AI 工具的 MCP 配置中即可"), cx);
             })))
-            .child(heading("本地 API", cx))
+            .child(heading(t!("本地 API"), cx))
             .child(group(
                 vec![
                     row(
-                        "启用记录 API",
+                        t!("启用记录 API"),
                         h_flex()
                             .gap_2()
-                            .child(div().text_xs().text_color(if running { theme.success } else { theme.muted_foreground }).child(if running { format!("运行中 · 127.0.0.1:{}", settings.api_port) } else { "未启用".into() }))
+                            .child(div().text_xs().text_color(if running { theme.success } else { theme.muted_foreground }).child(if running { t!("运行中 · 127.0.0.1:{}", settings.api_port) } else { t!("未启用").into() }))
                             .child(Switch::new("api-enabled").checked(settings.api_enabled).on_change(cx.listener(|this, checked: &bool, _, cx| {
                                 let enabled = *checked;
                                 let port = this.api_port.read(cx).value().trim().parse::<u16>().unwrap_or(17321);
@@ -867,7 +888,7 @@ impl SettingsPage {
                             }))),
                     ),
                     row(
-                        "端口",
+                        t!("端口"),
                         h_flex()
                             .gap_2()
                             .child(div().w(px(100.)).child(Input::new(&self.api_port).small()))
@@ -877,20 +898,20 @@ impl SettingsPage {
                             }))),
                     ),
                     row(
-                        "令牌",
+                        t!("令牌"),
                         h_flex()
                             .gap_2()
-                            .child(div().text_xs().font_family(theme.mono_font_family.clone()).text_color(theme.muted_foreground).child(if settings.api_token.is_empty() { "（启用时自动生成）".into() } else { settings.api_token.clone() }))
-                            .child(Button::new("api-regen-token").ghost().small().icon(Icon::new(Lucide::KeyRound)).tooltip("重新生成").on_click(|_, _, cx| update_settings(cx, |s| s.api_token = new_id()))),
+                            .child(div().text_xs().font_family(theme.mono_font_family.clone()).text_color(theme.muted_foreground).child(if settings.api_token.is_empty() { t!("（启用时自动生成）").into() } else { settings.api_token.clone() }))
+                            .child(Button::new("api-regen-token").ghost().small().icon(Icon::new(Lucide::KeyRound)).tooltip(t!("重新生成")).on_click(|_, _, cx| update_settings(cx, |s| s.api_token = new_id()))),
                     ),
                 ],
                 cx,
             ))
             .when_some(api_error, |this, e| this.child(div().text_xs().text_color(theme.danger).child(e)))
             .when(settings.api_enabled, |this| {
-                this.child(code(curl)).child(h_flex().child(Button::new("copy-curl").outline().small().icon(Icon::new(Lucide::Copy)).label("复制示例").on_click(move |_, window, cx| {
+                this.child(code(curl)).child(h_flex().child(Button::new("copy-curl").outline().small().icon(Icon::new(Lucide::Copy)).label(t!("复制示例")).on_click(move |_, window, cx| {
                     cx.write_to_clipboard(ClipboardItem::new_string(curl_copy.clone()));
-                    window.push_notification("已复制", cx);
+                    window.push_notification(t!("已复制"), cx);
                 })))
             })
             .into_any_element()
@@ -899,36 +920,36 @@ impl SettingsPage {
     fn render_import_export(&self, cx: &mut Context<Self>) -> AnyElement {
         v_flex()
             .gap_3()
-            .child(heading("导入", cx))
+            .child(heading(t!("导入"), cx))
             .child(group(
                 vec![
                     row(
-                        "从文件导入",
+                        t!("从文件导入"),
                         h_flex()
                             .gap_3()
-                            .child(Checkbox::new("skip-duplicates").label("跳过重复").checked(self.skip_duplicates).on_change(cx.listener(|this, checked: &bool, _, cx| {
+                            .child(Checkbox::new("skip-duplicates").label(t!("跳过重复")).checked(self.skip_duplicates).on_change(cx.listener(|this, checked: &bool, _, cx| {
                                 this.skip_duplicates = *checked;
                                 cx.notify();
                             })))
-                            .child(Button::new("import-files").outline().small().icon(Icon::new(Lucide::FileUp)).label("选择文件").on_click(cx.listener(|this, _, window, cx| this.import_files(window, cx)))),
+                            .child(Button::new("import-files").outline().small().icon(Icon::new(Lucide::FileUp)).label(t!("选择文件")).on_click(cx.listener(|this, _, window, cx| this.import_files(window, cx)))),
                     ),
                     block(
                         v_flex()
                             .gap_2()
-                            .child(div().text_sm().child("微信读书"))
+                            .child(div().text_sm().child(t!("微信读书")))
                             .child(Textarea::new(&self.wechat_text).small())
-                            .child(h_flex().justify_end().child(Button::new("import-wechat").outline().small().icon(Icon::new(Lucide::BookOpen)).label("导入微信读书笔记").on_click(cx.listener(|this, _, window, cx| this.import_wechat(window, cx))))),
+                            .child(h_flex().justify_end().child(Button::new("import-wechat").outline().small().icon(Icon::new(Lucide::BookOpen)).label(t!("导入微信读书笔记")).on_click(cx.listener(|this, _, window, cx| this.import_wechat(window, cx))))),
                     ),
                 ],
                 cx,
             ))
-            .child(caption("支持 flomo 导出的 HTML（含图片，在 flomo 网页版「设置 → 导出全部数据」，解压后选择 index.html）、MindFlow JSON、Markdown / TXT、CSV（Day One 等）。", cx))
-            .child(heading("导出", cx))
+            .child(caption(t!("支持 flomo 导出的 HTML（含图片，在 flomo 网页版「设置 → 导出全部数据」，解压后选择 index.html）、Mori JSON、Markdown / TXT、CSV（Day One 等）。"), cx))
+            .child(heading(t!("导出"), cx))
             .child(group(
                 vec![
-                    row("JSON（完整备份，可再次导入）", Button::new("export-json").outline().small().label("导出").on_click(cx.listener(|this, _, _, cx| this.export("json", cx)))),
-                    row("Markdown", Button::new("export-md").outline().small().label("导出").on_click(cx.listener(|this, _, _, cx| this.export("md", cx)))),
-                    row("HTML（与 flomo 导出格式相近）", Button::new("export-html").outline().small().label("导出").on_click(cx.listener(|this, _, _, cx| this.export("html", cx)))),
+                    row(t!("JSON（完整备份，可再次导入）"), Button::new("export-json").outline().small().label(t!("导出")).on_click(cx.listener(|this, _, _, cx| this.export("json", cx)))),
+                    row(t!("Markdown"), Button::new("export-md").outline().small().label(t!("导出")).on_click(cx.listener(|this, _, _, cx| this.export("md", cx)))),
+                    row(t!("HTML（与 flomo 导出格式相近）"), Button::new("export-html").outline().small().label(t!("导出")).on_click(cx.listener(|this, _, _, cx| this.export("html", cx)))),
                 ],
                 cx,
             ))
@@ -939,7 +960,7 @@ impl SettingsPage {
         let entry = |id: &'static str, label: &str, desc: &str, route: Route| {
             row(
                 &format!("{label} · {desc}"),
-                Button::new(id).ghost().small().label("打开").on_click(move |_, window, cx| {
+                Button::new(id).ghost().small().label(t!("打开")).on_click(move |_, window, cx| {
                     window.close_dialog(cx);
                     dispatch(Command::Navigate(route), window, cx);
                 }),
@@ -949,15 +970,15 @@ impl SettingsPage {
             .gap_3()
             .child(group(
                 vec![
-                    entry("lab-map", "认知地图", "笔记涌现出的思考山峰", Route::Map),
-                    entry("lab-walk", "随机漫步", "沿着语义小径游走", Route::Walk),
-                    entry("lab-graph", "笔记关系图", "批注与语义连接", Route::Graph),
-                    entry("lab-stats", "记录统计", "热力图、分布与排行", Route::Stats),
-                    entry("lab-memory", "AI 记忆档案", "让 AI 真正了解你", Route::Memory),
+                    entry("lab-map", t!("认知地图"), t!("笔记涌现出的思考山峰"), Route::Map),
+                    entry("lab-walk", t!("随机漫步"), t!("沿着语义小径游走"), Route::Walk),
+                    entry("lab-graph", t!("笔记关系图"), t!("批注与语义连接"), Route::Graph),
+                    entry("lab-stats", t!("记录统计"), t!("热力图、分布与排行"), Route::Stats),
+                    entry("lab-memory", t!("AI 记忆档案"), t!("让 AI 真正了解你"), Route::Memory),
                 ],
                 cx,
             ))
-            .child(caption("实验室里的功能仍在打磨中，欢迎多用多反馈。", cx))
+            .child(caption(t!("实验室里的功能仍在打磨中，欢迎多用多反馈。"), cx))
             .into_any_element()
     }
 }
@@ -995,7 +1016,7 @@ impl Render for SettingsPage {
                     .gap_0p5()
                     .bg(s.sidebar)
                     .rounded_l(theme.radius_lg)
-                    .child(div().px_3().pt_2().pb_3().text_sm().text_color(theme.muted_foreground).child("设置"))
+                    .child(div().px_3().pt_2().pb_3().text_sm().text_color(theme.muted_foreground).child(t!("设置")))
                     .children(SettingsSection::NAV.iter().enumerate().map(|(i, item)| match item {
                         None => div().h_3().into_any_element(),
                         Some(target) => {
@@ -1029,7 +1050,7 @@ impl Render for SettingsPage {
                             .text_xs()
                             .text_color(theme.muted_foreground)
                             .child(Icon::new(Lucide::Crown).xsmall().text_color(theme.yellow))
-                            .child(format!("MindFlow {} · 本地版", env!("CARGO_PKG_VERSION"))),
+                            .child(t!("Mori {} · 本地版", env!("CARGO_PKG_VERSION"))),
                     ),
             )
             .child(

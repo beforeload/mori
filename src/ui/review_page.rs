@@ -18,12 +18,12 @@ use super::library::Library;
 use super::memo_card::{CardOptions, memo_card, mini_card};
 
 const COUNTS: [usize; 6] = [4, 8, 12, 16, 20, 24];
-const SCOPES: [(ReviewScope, &str); 4] = [
-    (ReviewScope::All, "全部内容"),
-    (ReviewScope::IncludeTags, "包含标签"),
-    (ReviewScope::ExcludeTags, "排除标签"),
-    (ReviewScope::Untagged, "无标签"),
-];
+fn scopes() -> [(ReviewScope, &'static str); 4] { [
+    (ReviewScope::All, t!("全部内容")),
+    (ReviewScope::IncludeTags, t!("包含标签")),
+    (ReviewScope::ExcludeTags, t!("排除标签")),
+    (ReviewScope::Untagged, t!("无标签")),
+]}
 
 pub struct ReviewPage {
     batch: u32,
@@ -41,7 +41,7 @@ impl ReviewPage {
         let tags = library.read(cx).settings().review.tags.join(" ");
         let tags_input = cx.new(|cx| {
             InputState::new(window, cx)
-                .placeholder("标签，空格分隔，例如 读书 日记")
+                .placeholder(t!("标签，空格分隔，例如 读书 日记"))
                 .default_value(tags)
         });
         let subscriptions = vec![
@@ -107,31 +107,31 @@ impl ReviewPage {
             .child(
                 h_flex()
                     .gap_3()
-                    .child(label("内容范围"))
+                    .child(label(t!("内容范围")))
                     .child(
                         TabBar::new("review-scope")
                             .segmented()
                             .small()
-                            .selected_index(SCOPES.iter().position(|(s, _)| *s == cfg.scope).unwrap_or(0))
+                            .selected_index(scopes().iter().position(|(s, _)| *s == cfg.scope).unwrap_or(0))
                             .on_click(cx.listener(|this, ix: &usize, _, cx| {
-                                let scope = SCOPES[*ix].0;
+                                let scope = scopes()[*ix].0;
                                 this.update_config(cx, move |c| c.scope = scope);
                             }))
-                            .children(SCOPES.iter().map(|(_, l)| *l)),
+                            .children(scopes().iter().map(|(_, l)| *l)),
                     ),
             )
             .when(matches!(cfg.scope, ReviewScope::IncludeTags | ReviewScope::ExcludeTags), |this| {
                 this.child(
                     h_flex()
                         .gap_3()
-                        .child(label("标签"))
+                        .child(label(t!("标签")))
                         .child(div().flex_1().child(Input::new(&self.tags_input).small())),
                 )
             })
             .child(
                 h_flex()
                     .gap_3()
-                    .child(label("时间范围"))
+                    .child(label(t!("时间范围")))
                     .child(
                         TabBar::new("review-range")
                             .segmented()
@@ -147,7 +147,7 @@ impl ReviewPage {
             .child(
                 h_flex()
                     .gap_3()
-                    .child(label("每天数量"))
+                    .child(label(t!("每天数量")))
                     .child(
                         TabBar::new("review-count")
                             .segmented()
@@ -157,14 +157,14 @@ impl ReviewPage {
                                 let count = COUNTS[*ix];
                                 this.update_config(cx, move |c| c.count = count);
                             }))
-                            .children(COUNTS.iter().map(|c| format!("{c} 条"))),
+                            .children(COUNTS.iter().map(|c| t!("{} 条", c))),
                     ),
             )
             .child(
                 div()
                     .text_xs()
                     .text_color(theme.muted_foreground)
-                    .child(format!("符合条件的过往笔记共 {pool} 条。每天的回顾内容固定，点「换一批」可以重新抽取。")),
+                    .child(t!("符合条件的过往笔记共 {} 条。每天的回顾内容固定，点「换一批」可以重新抽取。", pool)),
             )
     }
 
@@ -186,12 +186,12 @@ impl ReviewPage {
         Some(
             v_flex()
                 .gap_2()
-                .child(div().text_sm().font_semibold().child(format!("往年今日 · {} 条", memos.len())))
+                .child(div().text_sm().font_semibold().child(t!("往年今日 · {} 条", memos.len())))
                 .children(memos.iter().map(|m| {
                     mini_card(
                         "onthisday",
                         m,
-                        Some(format!("{} 年前", today.year() - time::date_of(m.created_at).year())),
+                        Some(t!("{} 年前", today.year() - time::date_of(m.created_at).year())),
                         cx,
                     )
                 })),
@@ -211,7 +211,7 @@ impl Render for ReviewPage {
                 .flex()
                 .justify_center()
                 .text_color(theme.muted_foreground)
-                .child("还没有可以回顾的过往笔记。坚持记录几天，这里就会出现与旧想法重逢的惊喜。")
+                .child(t!("还没有可以回顾的过往笔记。坚持记录几天，这里就会出现与旧想法重逢的惊喜。"))
                 .into_any_element()
         } else if self.focus_mode {
             let lib = library.read(cx);
@@ -237,7 +237,7 @@ impl Render for ReviewPage {
                             Button::new("review-prev")
                                 .outline()
                                 .icon(Icon::new(Lucide::ChevronLeft))
-                                .label("上一条")
+                                .label(t!("上一条"))
                                 .disabled(index == 0)
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.index = this.index.saturating_sub(1);
@@ -254,7 +254,7 @@ impl Render for ReviewPage {
                             Button::new("review-next")
                                 .primary()
                                 .icon(Icon::new(Lucide::ChevronRight))
-                                .label(if index + 1 >= total { "今日回顾完成" } else { "下一条" })
+                                .label(if index + 1 >= total { t!("今日回顾完成") } else { t!("下一条") })
                                 .disabled(index + 1 >= total)
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.index = (this.index + 1).min(total - 1);
@@ -296,7 +296,7 @@ impl Render for ReviewPage {
                     .child(
                         h_flex()
                             .gap_2()
-                            .child(h_flex().gap_1().children(sidebar_toggle(cx)).child(div().text_lg().font_semibold().child("每日回顾")))
+                            .child(h_flex().gap_1().children(sidebar_toggle(cx)).child(div().text_lg().font_semibold().child(t!("每日回顾"))))
                             .child(
                                 div()
                                     .text_xs()
@@ -304,9 +304,9 @@ impl Render for ReviewPage {
                                     .child(if total == 0 {
                                         time::fmt_day(time::today())
                                     } else if self.focus_mode {
-                                        format!("{} · 第 {} / {} 条", time::fmt_day(time::today()), index + 1, total)
+                                        t!("{} · 第 {} / {} 条", time::fmt_day(time::today()), index + 1, total)
                                     } else {
-                                        format!("{} · 共 {} 条", time::fmt_day(time::today()), total)
+                                        t!("{} · 共 {} 条", time::fmt_day(time::today()), total)
                                     }),
                             )
                             .child(div().flex_1())
@@ -315,7 +315,7 @@ impl Render for ReviewPage {
                                     .ghost()
                                     .small()
                                     .icon(Icon::new(if self.focus_mode { Lucide::List } else { Lucide::Square }))
-                                    .label(if self.focus_mode { "列表" } else { "逐条" })
+                                    .label(if self.focus_mode { t!("列表") } else { t!("逐条") })
                                     .on_click(cx.listener(|this, _, _, cx| {
                                         this.focus_mode = !this.focus_mode;
                                         cx.notify();
@@ -326,7 +326,7 @@ impl Render for ReviewPage {
                                     .ghost()
                                     .small()
                                     .icon(Icon::new(Lucide::Shuffle))
-                                    .label("换一批")
+                                    .label(t!("换一批"))
                                     .on_click(cx.listener(|this, _, _, cx| {
                                         this.batch += 1;
                                         this.index = 0;
@@ -339,7 +339,7 @@ impl Render for ReviewPage {
                                     .small()
                                     .icon(Icon::new(Lucide::Settings))
                                     .selected(self.show_settings)
-                                    .label("回顾设置")
+                                    .label(t!("回顾设置"))
                                     .on_click(cx.listener(|this, _, _, cx| {
                                         this.show_settings = !this.show_settings;
                                         cx.notify();

@@ -511,7 +511,7 @@ pub fn compute_map(index: &SemanticIndex, created: &HashMap<MemoId, i64>) -> Map
     for (pi, peak) in peaks.iter_mut().enumerate() {
         peak.label = index.top_terms(&member_idx[pi], 2).join(" · ");
         if peak.label.is_empty() {
-            peak.label = format!("山峰 {}", pi + 1);
+            peak.label = t!("山峰 {}", pi + 1);
         }
         peak.members = member_idx[pi].iter().map(|&i| index.ids[i].clone()).collect();
     }

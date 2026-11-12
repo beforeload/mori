@@ -24,11 +24,11 @@ impl QuickFilter {
 
     pub fn label(self) -> &'static str {
         match self {
-            QuickFilter::HasImage => "有图片",
-            QuickFilter::HasLink => "有链接",
-            QuickFilter::HasRef => "有批注引用",
-            QuickFilter::NoTag => "无标签",
-            QuickFilter::OnThisDay => "往年今日",
+            QuickFilter::HasImage => t!("有图片"),
+            QuickFilter::HasLink => t!("有链接"),
+            QuickFilter::HasRef => t!("有批注引用"),
+            QuickFilter::NoTag => t!("无标签"),
+            QuickFilter::OnThisDay => t!("往年今日"),
         }
     }
 }
@@ -52,10 +52,10 @@ impl SortOrder {
 
     pub fn label(self) -> &'static str {
         match self {
-            SortOrder::CreatedDesc => "创建时间 · 新→旧",
-            SortOrder::CreatedAsc => "创建时间 · 旧→新",
-            SortOrder::UpdatedDesc => "编辑时间 · 新→旧",
-            SortOrder::UpdatedAsc => "编辑时间 · 旧→新",
+            SortOrder::CreatedDesc => t!("创建时间 · 新→旧"),
+            SortOrder::CreatedAsc => t!("创建时间 · 旧→新"),
+            SortOrder::UpdatedDesc => t!("编辑时间 · 新→旧"),
+            SortOrder::UpdatedAsc => t!("编辑时间 · 旧→新"),
         }
     }
 
@@ -203,7 +203,7 @@ mod tests {
 
     #[test]
     fn source_and_tag_filters_combine() {
-        let dir = std::env::temp_dir().join(format!("mindflow-query-{}", new_id()));
+        let dir = std::env::temp_dir().join(format!("mori-query-{}", new_id()));
         let mut store = Store::open(&dir).unwrap();
         for (content, source) in [("甲 #学习", "app"), ("乙 #学习", "mcp"), ("丙 #生活", "mcp")] {
             store

@@ -40,7 +40,7 @@ use super::walk_page::WalkPage;
 use super::{Command, Lucide, Route, WorkspaceGlobal, window_pin};
 
 actions!(
-    mindflow,
+    mori,
     [
         FocusSearch,
         NewMemo,
@@ -168,7 +168,7 @@ impl Workspace {
         let library = Library::global(cx);
         theme::apply(&library.read(cx).settings().clone(), window, cx);
         let stream = cx.new(|cx| MemoStream::new(window, cx));
-        let lock_input = cx.new(|cx| InputState::new(window, cx).masked(true).placeholder("输入密码解锁"));
+        let lock_input = cx.new(|cx| InputState::new(window, cx).masked(true).placeholder(t!("输入密码解锁")));
         let locked = library.read(cx).settings().lock_enabled;
         let sidebar_hidden = library.read(cx).settings().sidebar_hidden;
         let narrow = window.viewport_size().width < px(AUTO_COLLAPSE_WIDTH);
@@ -371,7 +371,7 @@ impl Workspace {
             // The sheet body scrolls, so the chat needs a definite height to keep its input pinned.
             let body = window.viewport_size().height - cx.theme().sheet.margin_top - px(SHEET_TITLE_BAR);
             sheet
-                .title("问问笔记 · AI Agent")
+                .title(t!("问问笔记 · AI Agent"))
                 .size(px(460.))
                 .p_0()
                 .child(div().h(body).min_h_0().overflow_hidden().child(chat.clone()))
@@ -416,7 +416,7 @@ impl Workspace {
         let next = !self.pinned;
         if window_pin::set_pinned(window, next) {
             self.pinned = next;
-            window.push_notification(if next { "窗口已置顶" } else { "已取消置顶" }, cx);
+            window.push_notification(if next { t!("窗口已置顶") } else { t!("已取消置顶") }, cx);
         }
         cx.notify();
     }
@@ -424,7 +424,7 @@ impl Workspace {
     pub fn lock(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let library = Library::global(cx);
         if !library.read(cx).settings().lock_enabled {
-            window.push_notification(Notification::info("请先在「设置 → 账号」中设置密码锁").title("尚未设置密码"), cx);
+            window.push_notification(Notification::info(t!("请先在「设置 → 账号」中设置密码锁")).title(t!("尚未设置密码")), cx);
             self.open_settings(SettingsSection::Account, window, cx);
             return;
         }
@@ -447,7 +447,7 @@ impl Workspace {
             self.lock_input.update(cx, |s, cx| s.set_value("", window, cx));
             self.stream.update(cx, |s, cx| s.focus_composer(window, cx));
         } else {
-            self.lock_error = Some("密码不正确".into());
+            self.lock_error = Some(t!("密码不正确").into());
         }
         cx.notify();
     }
@@ -466,16 +466,16 @@ impl Workspace {
         let nickname = lib.settings().nickname.clone();
         let dark = cx.theme().is_dark();
         let svg = share::memo_share_svg(&memo, &nickname, dark, &|rid| lib.ref_label(rid));
-        match share::render_png(&svg, 2.0).and_then(|png| share::save_png(&png, "笔记").map(|p| (png, p))) {
+        match share::render_png(&svg, 2.0).and_then(|png| share::save_png(&png, t!("笔记")).map(|p| (png, p))) {
             Ok((png, path)) => {
                 cx.write_to_clipboard(ClipboardItem::new_image(&Image::from_bytes(ImageFormat::Png, png)));
                 let reveal = path.clone();
                 window.push_notification(
-                    Notification::success(format!("已保存到 {}，并复制到剪贴板", path.display()))
-                        .title("分享图已生成")
+                    Notification::success(t!("已保存到 {}，并复制到剪贴板", path.display()))
+                        .title(t!("分享图已生成"))
                         .action(move |_, _, cx| {
                             let reveal = reveal.clone();
-                            Button::new("reveal-memo-share").xsmall().label("在访达中显示").on_click(cx.listener(move |this, _, window, cx| {
+                            Button::new("reveal-memo-share").xsmall().label(t!("在访达中显示")).on_click(cx.listener(move |this, _, window, cx| {
                                 cx.reveal_path(&reveal);
                                 this.dismiss(window, cx);
                             }))
@@ -483,7 +483,7 @@ impl Workspace {
                     cx,
                 );
             }
-            Err(e) => window.push_notification(Notification::warning(format!("生成分享图失败：{e}")), cx),
+            Err(e) => window.push_notification(Notification::warning(t!("生成分享图失败：{}", e)), cx),
         }
     }
 
@@ -500,9 +500,9 @@ impl Workspace {
         match command {
             Command::ToggleSidebar => self.toggle_sidebar(cx),
             Command::Refresh => match library.update(cx, |lib, cx| lib.sync_now(cx)) {
-                Ok(true) => window.push_notification(Notification::success("已读取 MCP / API 等外部写入的最新内容"), cx),
-                Ok(false) => window.push_notification(Notification::info("已是最新"), cx),
-                Err(e) => window.push_notification(Notification::warning(format!("刷新失败：{e}")), cx),
+                Ok(true) => window.push_notification(Notification::success(t!("已读取 MCP / API 等外部写入的最新内容")), cx),
+                Ok(false) => window.push_notification(Notification::info(t!("已是最新")), cx),
+                Err(e) => window.push_notification(Notification::warning(t!("刷新失败：{}", e)), cx),
             },
             Command::Navigate(route) => {
                 if route == Route::Memos && self.route == Route::Memos {
@@ -531,7 +531,7 @@ impl Workspace {
             }
             Command::OpenMemo(id) => {
                 if library.read(cx).store().get(&id).is_none() {
-                    window.push_notification(Notification::warning("这条笔记已不存在"), cx);
+                    window.push_notification(Notification::warning(t!("这条笔记已不存在")), cx);
                     return;
                 }
                 if window.has_active_sheet(cx) {
@@ -572,19 +572,19 @@ impl Workspace {
             Command::CopyText(id) => {
                 if let Some(memo) = library.read(cx).store().get(&id) {
                     let text = memo.content.clone();
-                    self.copy(text, "已复制笔记内容", window, cx);
+                    self.copy(text, t!("已复制笔记内容"), window, cx);
                 }
             }
             Command::CopyLink(id) => {
-                self.copy(parse::ref_token(&id), "已复制引用链接，粘贴到任意笔记即可建立引用", window, cx);
+                self.copy(parse::ref_token(&id), t!("已复制引用链接，粘贴到任意笔记即可建立引用"), window, cx);
             }
             Command::ShareImage(id) => self.share_image(&id, window, cx),
             Command::EditTime(id) => {
                 let Some(memo) = library.read(cx).store().get(&id).cloned() else {
                     return;
                 };
-                prompt_text(window, cx, "修改笔记时间", "格式：2024-05-01 21:30:00", &time::fmt_datetime(memo.created_at), "保存", move |value, _, cx| {
-                    let ts = time::parse_datetime(&value).ok_or("无法识别这个时间")?;
+                prompt_text(window, cx, t!("修改笔记时间"), t!("格式：2024-05-01 21:30:00"), &time::fmt_datetime(memo.created_at), t!("保存"), move |value, _, cx| {
+                    let ts = time::parse_datetime(&value).ok_or(t!("无法识别这个时间"))?;
                     Library::global(cx)
                         .update(cx, |lib, cx| lib.mutate(cx, |s| s.set_created_at(&id, ts)))
                         .map_err(|e| e.to_string())
@@ -592,7 +592,7 @@ impl Workspace {
             }
             Command::InsightMemo(id) => {
                 let page = self.insight_page(window, cx);
-                page.update(cx, |p, cx| p.set_memos(vec![id], "单条笔记".into(), window, cx));
+                page.update(cx, |p, cx| p.set_memos(vec![id], t!("单条笔记").into(), window, cx));
             }
             Command::InsightMemos(ids, label) => {
                 let page = self.insight_page(window, cx);
@@ -620,9 +620,9 @@ impl Workspace {
                     }
                     let restore_id = id.clone();
                     window.push_notification(
-                        Notification::new().message("已移入回收站").action(move |_, _, cx| {
+                        Notification::new().message(t!("已移入回收站")).action(move |_, _, cx| {
                             let restore_id = restore_id.clone();
-                            Button::new("undo-trash").primary().xsmall().label("撤销").on_click(cx.listener(move |this, _, window, cx| {
+                            Button::new("undo-trash").primary().xsmall().label(t!("撤销")).on_click(cx.listener(move |this, _, window, cx| {
                                 let id = restore_id.clone();
                                 let _ = Library::global(cx).update(cx, |lib, cx| lib.mutate(cx, |s| s.restore(&id)));
                                 this.dismiss(window, cx);
@@ -634,10 +634,10 @@ impl Workspace {
             }
             Command::Restore(id) => {
                 let _ = library.update(cx, |lib, cx| lib.mutate(cx, |s| s.restore(&id)));
-                window.push_notification(Notification::success("已恢复笔记"), cx);
+                window.push_notification(Notification::success(t!("已恢复笔记")), cx);
             }
             Command::Purge(id) => {
-                confirm(window, cx, "彻底删除这条笔记？", "删除后无法恢复，历史版本也会一并删除。", "彻底删除", true, move |_, cx| {
+                confirm(window, cx, t!("彻底删除这条笔记？"), t!("删除后无法恢复，历史版本也会一并删除。"), t!("彻底删除"), true, move |_, cx| {
                     let id = id.clone();
                     let _ = Library::global(cx).update(cx, |lib, cx| lib.mutate(cx, |s| s.purge(&id)));
                 });
@@ -648,14 +648,14 @@ impl Workspace {
                 prompt_fields(
                     window,
                     cx,
-                    &format!("编辑 #{tag}"),
-                    "改名时子标签会一起改；输入 父标签/新名称 可移动到其他标签下。图标填一个 Emoji，留空恢复默认。",
-                    &[("名称", &tag, "标签名称"), ("图标", &icon, "例如 📚")],
-                    "保存",
+                    &t!("编辑 #{}", tag),
+                    t!("改名时子标签会一起改；输入 父标签/新名称 可移动到其他标签下。图标填一个 Emoji，留空恢复默认。"),
+                    &[(t!("名称"), &tag, t!("标签名称")), (t!("图标"), &icon, t!("例如 📚"))],
+                    t!("保存"),
                     move |values, window, cx| {
                         let new = values[0].trim_start_matches('#').trim_matches('/').to_string();
                         if new.is_empty() {
-                            return Err("标签名称不能为空".into());
+                            return Err(t!("标签名称不能为空").into());
                         }
                         let icon: String = values[1].chars().take(2).collect();
                         let library = Library::global(cx);
@@ -663,7 +663,7 @@ impl Workspace {
                             let count = library
                                 .update(cx, |lib, cx| lib.mutate(cx, |s| s.rename_tag(&old, &new)))
                                 .map_err(|e| e.to_string())?;
-                            window.push_notification(Notification::success(format!("已更新 {count} 条笔记")), cx);
+                            window.push_notification(Notification::success(t!("已更新 {} 条笔记", count)), cx);
                         }
                         library
                             .update(cx, |lib, cx| lib.mutate(cx, |s| s.set_tag_icon(&new, Some(icon))))
@@ -697,29 +697,29 @@ impl Workspace {
             let remove_tag = remove_tag.clone();
             let trash_tag = trash_tag.clone();
             dialog
-                .title(format!("删除标签 #{tag}"))
+                .title(t!("删除标签 #{}", tag))
                 .w(px(460.))
-                .child(div().text_sm().text_color(cx.theme().muted_foreground).child(format!("共有 {count} 条笔记使用此标签（含子标签）。")))
+                .child(div().text_sm().text_color(cx.theme().muted_foreground).child(t!("共有 {} 条笔记使用此标签（含子标签）。", count)))
                 .footer(
                     h_flex()
                         .gap_2()
                         .justify_end()
-                        .child(Button::new("tag-cancel").outline().label("取消").on_click(|_, window, cx| window.close_dialog(cx)))
-                        .child(Button::new("tag-remove-only").label("仅移除标签").on_click(move |_, window, cx| {
+                        .child(Button::new("tag-cancel").outline().label(t!("取消")).on_click(|_, window, cx| window.close_dialog(cx)))
+                        .child(Button::new("tag-remove-only").label(t!("仅移除标签")).on_click(move |_, window, cx| {
                             let tag = remove_tag.clone();
                             let result = Library::global(cx).update(cx, |lib, cx| lib.mutate(cx, |s| s.remove_tag(&tag)));
                             window.close_dialog(cx);
                             if let Ok(n) = result {
-                                window.push_notification(Notification::success(format!("已从 {n} 条笔记中移除标签")), cx);
+                                window.push_notification(Notification::success(t!("已从 {} 条笔记中移除标签", n)), cx);
                             }
                             super::dispatch(Command::Navigate(Route::Memos), window, cx);
                         }))
-                        .child(Button::new("tag-delete-all").danger().label("删除标签和笔记").on_click(move |_, window, cx| {
+                        .child(Button::new("tag-delete-all").danger().label(t!("删除标签和笔记")).on_click(move |_, window, cx| {
                             let tag = trash_tag.clone();
                             let result = Library::global(cx).update(cx, |lib, cx| lib.mutate(cx, |s| s.trash_tag_memos(&tag)));
                             window.close_dialog(cx);
                             if let Ok(n) = result {
-                                window.push_notification(Notification::success(format!("{n} 条笔记已移入回收站")), cx);
+                                window.push_notification(Notification::success(t!("{} 条笔记已移入回收站", n)), cx);
                             }
                             super::dispatch(Command::Navigate(Route::Memos), window, cx);
                         })),
@@ -737,10 +737,10 @@ impl Workspace {
             .bg(surfaces(cx).page)
             .child(drag_strip().absolute().top_0().left_0().right_0().h(px(TOP_BAR)))
             .child(Icon::new(Lucide::Lock).large().text_color(theme.muted_foreground))
-            .child(div().text_lg().font_semibold().child("MindFlow 已锁定"))
+            .child(div().text_lg().font_semibold().child(t!("Mori 已锁定")))
             .child(div().w(px(260.)).child(Input::new(&self.lock_input).mask_toggle()))
             .when_some(self.lock_error.clone(), |this, e| this.child(div().text_sm().text_color(theme.danger).child(e)))
-            .child(Button::new("unlock").primary().label("解锁").on_click(cx.listener(|this, _, window, cx| this.try_unlock(window, cx))))
+            .child(Button::new("unlock").primary().label(t!("解锁")).on_click(cx.listener(|this, _, window, cx| this.try_unlock(window, cx))))
     }
 
     fn render_window_actions(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -753,7 +753,7 @@ impl Workspace {
                     .xsmall()
                     .icon(Icon::new(if self.pinned { Lucide::PinOff } else { Lucide::Pin }).text_color(if self.pinned { surfaces(cx).accent } else { muted }))
                     .selected(self.pinned)
-                    .tooltip(if self.pinned { "取消窗口置顶" } else { "窗口置顶" })
+                    .tooltip(if self.pinned { t!("取消窗口置顶") } else { t!("窗口置顶") })
                     .on_click(cx.listener(|this, _, window, cx| this.toggle_pin(window, cx))),
             )
             .child(
@@ -762,15 +762,15 @@ impl Workspace {
                     .xsmall()
                     .icon(Icon::new(Lucide::Ellipsis).text_color(muted))
                     .dropdown_menu_with_anchor(Anchor::TopRight, |menu, _, _| {
-                        menu.item(menu_item("问问笔记（AI Agent）", Lucide::BotMessageSquare, Command::ToggleAgent))
-                            .item(menu_item("认知地图", Lucide::Mountain, Command::Navigate(Route::Map)))
-                            .item(menu_item("笔记关系图", Lucide::Waypoints, Command::Navigate(Route::Graph)))
-                            .item(menu_item("记录统计", Lucide::ChartNoAxesColumn, Command::Navigate(Route::Stats)))
-                            .item(menu_item("AI 记忆档案", Lucide::Brain, Command::Navigate(Route::Memory)))
+                        menu.item(menu_item(t!("问问笔记（AI Agent）"), Lucide::BotMessageSquare, Command::ToggleAgent))
+                            .item(menu_item(t!("认知地图"), Lucide::Mountain, Command::Navigate(Route::Map)))
+                            .item(menu_item(t!("笔记关系图"), Lucide::Waypoints, Command::Navigate(Route::Graph)))
+                            .item(menu_item(t!("记录统计"), Lucide::ChartNoAxesColumn, Command::Navigate(Route::Stats)))
+                            .item(menu_item(t!("AI 记忆档案"), Lucide::Brain, Command::Navigate(Route::Memory)))
                             .separator()
-                            .item(menu_item("导入导出", Lucide::ArrowDownUp, Command::OpenSettings(SettingsSection::ImportExport)))
-                            .item(menu_item("回收站", Lucide::Trash, Command::Navigate(Route::Trash)))
-                            .item(menu_item("设置", Lucide::Settings, Command::OpenSettings(SettingsSection::General)))
+                            .item(menu_item(t!("导入导出"), Lucide::ArrowDownUp, Command::OpenSettings(SettingsSection::ImportExport)))
+                            .item(menu_item(t!("回收站"), Lucide::Trash, Command::Navigate(Route::Trash)))
+                            .item(menu_item(t!("设置"), Lucide::Settings, Command::OpenSettings(SettingsSection::General)))
                     }),
             )
     }
@@ -895,7 +895,7 @@ impl Render for Workspace {
                                     .justify_center()
                                     .cursor_pointer()
                                     .hover(|d| d.bg(s.accent_soft))
-                                    .tooltip(|window, cx| gpui_kit::component::tooltip::Tooltip::new("问问笔记 · AI Agent").build(window, cx))
+                                    .tooltip(|window, cx| gpui_kit::component::tooltip::Tooltip::new(t!("问问笔记 · AI Agent")).build(window, cx))
                                     .child(Icon::new(Lucide::MessageCirclePlus).text_color(s.accent))
                                     .on_click(cx.listener(|this, _, window, cx| this.toggle_agent(window, cx))),
                             )

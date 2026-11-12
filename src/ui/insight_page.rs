@@ -25,13 +25,13 @@ use super::memo_card::mini_card;
 use super::tasks::{StreamEvent, stream_chat};
 use super::{Command, Lucide, dispatch};
 
-const RANGES: [(&str, Option<i64>); 5] = [
-    ("全部时间", None),
-    ("近 7 天", Some(7)),
-    ("近 30 天", Some(30)),
-    ("近 90 天", Some(90)),
-    ("近一年", Some(365)),
-];
+fn ranges() -> [(&'static str, Option<i64>); 5] { [
+    (t!("全部时间"), None),
+    (t!("近 7 天"), Some(7)),
+    (t!("近 30 天"), Some(30)),
+    (t!("近 90 天"), Some(90)),
+    (t!("近一年"), Some(365)),
+]}
 
 static CITE_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\[(\d{1,3}(?:\s*[,，、]\s*\d{1,3})*)\]").unwrap());
@@ -86,12 +86,12 @@ pub struct InsightPage {
 impl InsightPage {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let library = Library::global(cx);
-        let tag_input = cx.new(|cx| InputState::new(window, cx).placeholder("标签，例如 读书"));
-        let custom_name = cx.new(|cx| InputState::new(window, cx).placeholder("视角名称，例如 老朋友"));
+        let tag_input = cx.new(|cx| InputState::new(window, cx).placeholder(t!("标签，例如 读书")));
+        let custom_name = cx.new(|cx| InputState::new(window, cx).placeholder(t!("视角名称，例如 老朋友")));
         let custom_prompt = cx.new(|cx| {
             TextareaState::new(window, cx)
                 .rows(3)
-                .placeholder("写下你珍藏的提示词，例如：像一位认识我十年的老朋友那样，坦诚地指出我最近的变化。")
+                .placeholder(t!("写下你珍藏的提示词，例如：像一位认识我十年的老朋友那样，坦诚地指出我最近的变化。"))
         });
         let history = library.read(cx).store().insights().unwrap_or_default();
         Self {
@@ -130,7 +130,7 @@ impl InsightPage {
 
     fn selected_memos<'a>(&self, lib: &'a Library, cx: &App) -> Vec<&'a Memo> {
         let store = lib.store();
-        let cutoff = RANGES[self.range]
+        let cutoff = ranges()[self.range]
             .1
             .map(|days| time::start_of_day(time::today() - chrono::Duration::days(days)));
         let in_range = |m: &&Memo| cutoff.is_none_or(|c| m.created_at >= c);
@@ -154,19 +154,26 @@ impl InsightPage {
     fn perspectives(&self, cx: &App) -> Vec<(String, String, String, Option<usize>)> {
         let mut list: Vec<(String, String, String, Option<usize>)> = PERSPECTIVES
             .iter()
-            .map(|p| (p.name.to_string(), p.description.to_string(), p.instruction.to_string(), None))
+            .map(|p| {
+                (
+                    crate::i18n::tr(p.name).to_string(),
+                    crate::i18n::tr(p.description).to_string(),
+                    p.instruction.to_string(),
+                    None,
+                )
+            })
             .collect();
         let customs = Library::global(cx).read(cx).settings().custom_perspectives.clone();
         for (i, c) in customs.into_iter().enumerate() {
-            list.push((c.name, "自定义视角".into(), c.prompt, Some(i)));
+            list.push((c.name, t!("自定义视角").into(), c.prompt, Some(i)));
         }
         list
     }
 
     fn scope_label(&self, cx: &App) -> String {
-        let range = RANGES[self.range].0;
+        let range = ranges()[self.range].0;
         match &self.scope {
-            Scope::All => format!("全部笔记 · {range}"),
+            Scope::All => t!("全部笔记 · {}", range),
             Scope::Tag(_) => format!("#{} · {range}", self.tag_input.read(cx).value().trim().trim_start_matches('#')),
             Scope::Memos(_, label) => label.clone(),
         }
@@ -177,12 +184,12 @@ impl InsightPage {
         let lib = library.read(cx);
         let cfg = lib.settings().ai.clone();
         if !cfg.is_configured() {
-            window.push_notification("请先在设置中配置 AI 服务", cx);
+            window.push_notification(t!("请先在设置中配置 AI 服务"), cx);
             return;
         }
         let memos = self.selected_memos(lib, cx);
         if memos.is_empty() {
-            self.status = Status::Failed("所选范围内没有笔记".into());
+            self.status = Status::Failed(t!("所选范围内没有笔记").into());
             cx.notify();
             return;
         }
@@ -194,7 +201,7 @@ impl InsightPage {
         let scope = self.scope_label(cx);
         self.context_ids = ids.clone();
         self.output.clear();
-        self.output_title = format!("{name} · {scope} · {} 条笔记", ids.len());
+        self.output_title = t!("{} · {} · {} 条笔记", name, scope, ids.len());
         self.status = Status::Running;
         cx.notify();
         self._task = Some(stream_chat(cx, cfg, messages, move |this, event, cx| {
@@ -227,7 +234,7 @@ impl InsightPage {
         let name = self.custom_name.read(cx).value().trim().to_string();
         let prompt = self.custom_prompt.read(cx).value().trim().to_string();
         if name.is_empty() || prompt.is_empty() {
-            window.push_notification("请填写视角名称和提示词", cx);
+            window.push_notification(t!("请填写视角名称和提示词"), cx);
             return;
         }
         let library = Library::global(cx);
@@ -258,7 +265,7 @@ impl InsightPage {
             .bg(theme.background)
             .border_1()
             .border_color(theme.border)
-            .child(div().text_sm().font_semibold().child("1. 选择洞察的原料"))
+            .child(div().text_sm().font_semibold().child(t!("1. 选择洞察的原料")))
             .child(
                 h_flex()
                     .gap_3()
@@ -275,9 +282,9 @@ impl InsightPage {
                                 };
                                 cx.notify();
                             }))
-                            .child("全部笔记")
-                            .child("按标签")
-                            .when(has_memos, |t| t.child("指定笔记")),
+                            .child(t!("全部笔记"))
+                            .child(t!("按标签"))
+                            .when(has_memos, |t| t.child(t!("指定笔记"))),
                     )
                     .when(scope_index == 1, |this| {
                         this.child(div().w(px(200.)).child(Input::new(&self.tag_input).small()))
@@ -293,7 +300,7 @@ impl InsightPage {
                             this.range = *ix;
                             cx.notify();
                         }))
-                        .children(RANGES.iter().map(|(l, _)| *l)),
+                        .children(ranges().iter().map(|(l, _)| *l)),
                 )
             })
             .child(
@@ -301,9 +308,9 @@ impl InsightPage {
                     .text_xs()
                     .text_color(theme.muted_foreground)
                     .child(if count > 60 {
-                        format!("范围内共 {count} 条笔记，将挑选 60 条有代表性的笔记（近期优先，兼顾全部时间）交给 AI")
+                        t!("范围内共 {} 条笔记，将挑选 60 条有代表性的笔记（近期优先，兼顾全部时间）交给 AI", count)
                     } else {
-                        format!("范围内共 {count} 条笔记")
+                        t!("范围内共 {} 条笔记", count)
                     }),
             )
     }
@@ -320,14 +327,14 @@ impl InsightPage {
             .border_color(theme.border)
             .child(
                 h_flex()
-                    .child(div().text_sm().font_semibold().child("2. 选择洞察视角"))
+                    .child(div().text_sm().font_semibold().child(t!("2. 选择洞察视角")))
                     .child(div().flex_1())
                     .child(
                         Button::new("custom-perspective")
                             .ghost()
                             .xsmall()
                             .icon(Icon::new(Lucide::Plus))
-                            .label("自定义视角")
+                            .label(t!("自定义视角"))
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.show_custom_form = !this.show_custom_form;
                                 cx.notify();
@@ -397,7 +404,7 @@ impl InsightPage {
                                 Button::new("save-perspective")
                                     .primary()
                                     .small()
-                                    .label("保存视角")
+                                    .label(t!("保存视角"))
                                     .on_click(cx.listener(|this, _, window, cx| this.save_custom(window, cx))),
                             ),
                         ),
@@ -436,7 +443,7 @@ impl InsightPage {
                         .child(div().text_sm().font_semibold().child(self.output_title.clone()))
                         .child(div().flex_1())
                         .when(self.status == Status::Running, |this| {
-                            this.child(div().text_xs().text_color(theme.muted_foreground).child("AI 正在阅读你的笔记…"))
+                            this.child(div().text_xs().text_color(theme.muted_foreground).child(t!("AI 正在阅读你的笔记…")))
                         }),
                 )
                 .when_some(
@@ -450,7 +457,7 @@ impl InsightPage {
                     this.child(TextView::markdown("insight-output", self.output.clone()))
                 })
                 .when(!cited.is_empty(), |this| {
-                    this.child(div().pt_2().text_xs().text_color(theme.muted_foreground).child("洞察来源 · 点击回到灵感初现的现场"))
+                    this.child(div().pt_2().text_xs().text_color(theme.muted_foreground).child(t!("洞察来源 · 点击回到灵感初现的现场")))
                         .children(cited.iter().map(|(n, m)| mini_card("insight-cite", m, Some(format!("[{n}]")), cx)))
                 })
                 .when(self.status == Status::Done, |this| {
@@ -461,7 +468,7 @@ impl InsightPage {
                                 .outline()
                                 .small()
                                 .icon(Icon::new(Lucide::NotebookPen))
-                                .label("把这份洞察记成笔记")
+                                .label(t!("把这份洞察记成笔记"))
                                 .on_click(move |_, window, cx| {
                                     let text = text.clone();
                                     let result = Library::global(cx).update(cx, |lib, cx| {
@@ -475,7 +482,7 @@ impl InsightPage {
                                         })
                                     });
                                     if result.is_ok() {
-                                        window.push_notification("已保存为笔记", cx);
+                                        window.push_notification(t!("已保存为笔记"), cx);
                                     }
                                 }),
                         ),
@@ -490,7 +497,7 @@ impl InsightPage {
         v_flex()
             .gap_2()
             .when(!self.history.is_empty(), |this| {
-                this.child(div().text_sm().font_semibold().pt_2().child("洞察记录"))
+                this.child(div().text_sm().font_semibold().pt_2().child(t!("洞察记录")))
             })
             .children(self.history.iter().take(30).map(|record| {
                 let r = record.clone();
@@ -557,12 +564,12 @@ impl Render for InsightPage {
                     .child(
                         v_flex()
                             .gap_1()
-                            .child(h_flex().gap_1().children(sidebar_toggle(cx)).child(div().text_lg().font_semibold().child("AI 洞察")))
+                            .child(h_flex().gap_1().children(sidebar_toggle(cx)).child(div().text_lg().font_semibold().child(t!("AI 洞察"))))
                             .child(
                                 div()
                                     .text_sm()
                                     .text_color(theme.muted_foreground)
-                                    .child("深度阅读你挑选的笔记，从一个视角识别主题、揭示盲点、提出好问题。AI 不替你思考，而是帮你发现更好的问题。"),
+                                    .child(t!("深度阅读你挑选的笔记，从一个视角识别主题、揭示盲点、提出好问题。AI 不替你思考，而是帮你发现更好的问题。")),
                             ),
                     )
                     .when(!configured, |this| {
@@ -573,11 +580,11 @@ impl Render for InsightPage {
                                 .rounded_md()
                                 .bg(theme.warning.opacity(0.12))
                                 .child(Icon::new(Lucide::CircleAlert).small().text_color(theme.warning))
-                                .child(div().flex_1().text_sm().child("还没有配置 AI 服务。支持 OpenAI、DeepSeek、通义千问、Kimi、Ollama 等兼容接口。"))
+                                .child(div().flex_1().text_sm().child(t!("还没有配置 AI 服务。支持 OpenAI、DeepSeek、通义千问、Kimi、Ollama 等兼容接口。")))
                                 .child(
                                     Button::new("goto-settings")
                                         .small()
-                                        .label("去设置")
+                                        .label(t!("去设置"))
                                         .on_click(|_, window, cx| dispatch(Command::OpenSettings(super::settings_page::SettingsSection::Ai), window, cx)),
                                 ),
                         )
@@ -591,7 +598,7 @@ impl Render for InsightPage {
                                 Button::new("run-insight")
                                     .primary()
                                     .icon(Icon::new(Lucide::Sparkles))
-                                    .label(if running { "洞察中…" } else { "开始洞察" })
+                                    .label(if running { t!("洞察中…") } else { t!("开始洞察") })
                                     .loading(running)
                                     .disabled(running || !configured)
                                     .on_click(cx.listener(|this, _, window, cx| this.run(window, cx))),
@@ -600,7 +607,7 @@ impl Render for InsightPage {
                                 this.child(
                                     Button::new("stop-insight")
                                         .outline()
-                                        .label("停止")
+                                        .label(t!("停止"))
                                         .on_click(cx.listener(|this, _, _, cx| {
                                             this._task = None;
                                             this.status = Status::Done;

@@ -37,14 +37,14 @@ use super::{Command, Lucide, Route, dispatch};
 const CONTENT_MAX_WIDTH: f32 = 1080.;
 
 /// (source key, label) for the 笔记来源 filter; `None` shows every source.
-const SOURCES: [(Option<&str>, &str); 6] = [
-    (None, "全部"),
-    (Some("app"), "应用内"),
+fn sources() -> [(Option<&'static str>, &'static str); 6] { [
+    (None, t!("全部")),
+    (Some("app"), t!("应用内")),
     (Some("api"), "API"),
     (Some("mcp"), "MCP"),
-    (Some("ai"), "AI 对话"),
-    (Some("import"), "导入"),
-];
+    (Some("ai"), t!("AI 对话")),
+    (Some("import"), t!("导入")),
+]}
 
 #[derive(Clone, Copy)]
 enum RangePreset {
@@ -87,10 +87,10 @@ fn parse_tag_list(text: &str) -> Vec<String> {
 impl MemoStream {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let search = cx.new(|cx| InputState::new(window, cx).placeholder("⌘+K"));
-        let date_from = cx.new(|cx| InputState::new(window, cx).placeholder("开始 2024-01-01"));
-        let date_to = cx.new(|cx| InputState::new(window, cx).placeholder("结束 2024-12-31"));
-        let include_tags = cx.new(|cx| InputState::new(window, cx).placeholder("包含的标签，空格分隔"));
-        let exclude_tags = cx.new(|cx| InputState::new(window, cx).placeholder("不包含的标签，空格分隔"));
+        let date_from = cx.new(|cx| InputState::new(window, cx).placeholder(t!("开始 2024-01-01")));
+        let date_to = cx.new(|cx| InputState::new(window, cx).placeholder(t!("结束 2024-12-31")));
+        let include_tags = cx.new(|cx| InputState::new(window, cx).placeholder(t!("包含的标签，空格分隔")));
+        let exclude_tags = cx.new(|cx| InputState::new(window, cx).placeholder(t!("不包含的标签，空格分隔")));
         let composer = cx.new(|cx| Composer::new(ComposerMode::New, window, cx));
         let library = Library::global(cx);
         let settings = library.read(cx).settings().clone();
@@ -344,9 +344,9 @@ impl MemoStream {
         self.stop_selecting(cx);
         match result {
             Ok(n) => window.push_notification(
-                Notification::new().message(format!("{n} 条笔记已移入回收站")).action(move |_, _, cx| {
+                Notification::new().message(t!("{} 条笔记已移入回收站", n)).action(move |_, _, cx| {
                     let ids = ids.clone();
-                    Button::new("undo-batch-trash").primary().xsmall().label("撤销").on_click(cx.listener(move |this, _, window, cx| {
+                    Button::new("undo-batch-trash").primary().xsmall().label(t!("撤销")).on_click(cx.listener(move |this, _, window, cx| {
                         let ids = ids.clone();
                         let _ = Library::global(cx).update(cx, |lib, cx| {
                             lib.mutate(cx, |s| {
@@ -361,7 +361,7 @@ impl MemoStream {
                 }),
                 cx,
             ),
-            Err(e) => window.push_notification(Notification::warning(format!("删除失败：{e}")), cx),
+            Err(e) => window.push_notification(Notification::warning(t!("删除失败：{}", e)), cx),
         }
     }
 
@@ -373,14 +373,14 @@ impl MemoStream {
         prompt_text(
             window,
             cx,
-            &format!("给 {} 条笔记添加标签", ids.len()),
-            "标签会追加到每条笔记末尾，用 / 分级，例如 读书/方法。",
+            &t!("给 {} 条笔记添加标签", ids.len()),
+            t!("标签会追加到每条笔记末尾，用 / 分级，例如 读书/方法。"),
             "",
-            "添加",
+            t!("添加"),
             move |value, window, cx| {
                 let tag: String = value.trim().trim_start_matches('#').chars().filter(|c| !c.is_whitespace()).collect();
                 if tag.is_empty() {
-                    return Err("请输入标签".into());
+                    return Err(t!("请输入标签").into());
                 }
                 let count = Library::global(cx)
                     .update(cx, |lib, cx| {
@@ -398,7 +398,7 @@ impl MemoStream {
                         })
                     })
                     .map_err(|e| e.to_string())?;
-                window.push_notification(Notification::success(format!("已为 {count} 条笔记添加 #{tag}")), cx);
+                window.push_notification(Notification::success(t!("已为 {} 条笔记添加 #{}", count, tag)), cx);
                 Ok(())
             },
         );
@@ -406,7 +406,7 @@ impl MemoStream {
 
     fn export_selected(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let ids = self.selected_ids();
-        let title = format!("{}（{} 条）", self.export_title(), ids.len());
+        let title = t!("{}（{} 条）", self.export_title(), ids.len());
         export_memos(&ids, &title, window, cx);
     }
 
@@ -460,7 +460,7 @@ impl MemoStream {
             } else {
                 time::parse_date(s)
                     .map(Some)
-                    .ok_or_else(|| format!("无法识别日期「{s}」，请使用 2024-01-31 格式"))
+                    .ok_or_else(|| t!("无法识别日期「{}」，请使用 2024-01-31 格式", s))
             }
         };
         match (parse(&from), parse(&to)) {
@@ -513,11 +513,11 @@ impl MemoStream {
         } else if let Some(day) = self.filter.day {
             time::fmt_day(day)
         } else if !self.filter.keywords.trim().is_empty() {
-            if self.semantic { "语义搜索".into() } else { "搜索结果".into() }
+            if self.semantic { t!("语义搜索").into() } else { t!("搜索结果").into() }
         } else if let Some(q) = self.filter.quick {
             q.label().into()
         } else {
-            "全部笔记".into()
+            t!("全部笔记").into()
         }
     }
 
@@ -554,7 +554,7 @@ impl MemoStream {
                         .ghost()
                         .small()
                         .icon(Icon::new(Lucide::House).text_color(muted))
-                        .tooltip("全部笔记")
+                        .tooltip(t!("全部笔记"))
                         .on_click(|_, window, cx| dispatch(Command::Navigate(Route::Memos), window, cx)),
                 )
                 .child(slash())
@@ -598,15 +598,15 @@ impl MemoStream {
                     let pinned = Library::global(cx).read(cx).store().tag_meta(tag).pinned;
                     menu = menu
                         .item(menu_item(
-                            if pinned { "取消置顶" } else { "置顶" },
+                            if pinned { t!("取消置顶") } else { t!("置顶") },
                             if pinned { Lucide::PinOff } else { Lucide::ArrowUpToLine },
                             Command::TogglePinTag(tag.clone()),
                         ))
-                        .item(menu_item("编辑标签/图标", Lucide::Pencil, Command::EditTag(tag.clone())))
+                        .item(menu_item(t!("编辑标签/图标"), Lucide::Pencil, Command::EditTag(tag.clone())))
                         .separator();
                 }
                 let sort_view = view.clone();
-                menu = menu.submenu_with_icon(Some(Icon::new(Lucide::ArrowUpDown)), "排序方式", window, cx, move |sub, _, _| {
+                menu = menu.submenu_with_icon(Some(Icon::new(Lucide::ArrowUpDown)), t!("排序方式"), window, cx, move |sub, _, _| {
                     SortOrder::ALL.iter().fold(sub, |sub, &order| {
                         let view = sort_view.clone();
                         sub.item(PopupMenuItem::new(order.label()).checked(order == sort).on_click(move |_, _, cx| {
@@ -616,8 +616,8 @@ impl MemoStream {
                 });
                 let source_view = view.clone();
                 let current_source = source.clone();
-                menu = menu.submenu_with_icon(Some(Icon::new(Lucide::Funnel)), "笔记来源", window, cx, move |sub, _, _| {
-                    SOURCES.iter().fold(sub, |sub, &(key, name)| {
+                menu = menu.submenu_with_icon(Some(Icon::new(Lucide::Funnel)), t!("笔记来源"), window, cx, move |sub, _, _| {
+                    sources().iter().fold(sub, |sub, &(key, name)| {
                         let view = source_view.clone();
                         let checked = current_source.as_deref() == key;
                         sub.item(PopupMenuItem::new(name).checked(checked).on_click(move |_, _, cx| {
@@ -628,21 +628,21 @@ impl MemoStream {
                 let select_view = view.clone();
                 let export_view = view.clone();
                 menu = menu
-                    .item(PopupMenuItem::new("多选笔记").icon(Icon::new(Lucide::CircleCheck)).on_click(move |_, _, cx| {
+                    .item(PopupMenuItem::new(t!("多选笔记")).icon(Icon::new(Lucide::CircleCheck)).on_click(move |_, _, cx| {
                         let _ = select_view.update(cx, |this, cx| this.start_selecting(cx));
                     }))
-                    .item(PopupMenuItem::new("导出").icon(Icon::new(Lucide::Download)).on_click(move |_, window, cx| {
+                    .item(PopupMenuItem::new(t!("导出")).icon(Icon::new(Lucide::Download)).on_click(move |_, window, cx| {
                         let _ = export_view.update(cx, |this, cx| this.export_view(window, cx));
                     }));
                 match &tag {
                     Some(tag) => menu
-                        .item(menu_item("AI 洞察此标签", Lucide::Sparkles, Command::InsightMemos(Vec::new(), format!("#{tag}"))))
+                        .item(menu_item(t!("AI 洞察此标签"), Lucide::Sparkles, Command::InsightMemos(Vec::new(), format!("#{tag}"))))
                         .separator()
-                        .item(danger_menu_item("删除", Lucide::Trash, Command::DeleteTag(tag.clone()), cx)),
+                        .item(danger_menu_item(t!("删除"), Lucide::Trash, Command::DeleteTag(tag.clone()), cx)),
                     None => menu
                         .separator()
-                        .item(menu_item("记录统计", Lucide::ChartNoAxesColumn, Command::Navigate(Route::Stats)))
-                        .item(menu_item("回收站", Lucide::Trash, Command::Navigate(Route::Trash))),
+                        .item(menu_item(t!("记录统计"), Lucide::ChartNoAxesColumn, Command::Navigate(Route::Stats)))
+                        .item(menu_item(t!("回收站"), Lucide::Trash, Command::Navigate(Route::Trash))),
                 }
             })
     }
@@ -701,18 +701,18 @@ impl MemoStream {
                 ));
             }
             if !self.filter.include_tags.is_empty() {
-                parts.push(format!("含 #{}", self.filter.include_tags.join(" #")));
+                parts.push(t!("含 #{}", self.filter.include_tags.join(" #")));
             }
             if !self.filter.exclude_tags.is_empty() {
-                parts.push(format!("不含 #{}", self.filter.exclude_tags.join(" #")));
+                parts.push(t!("不含 #{}", self.filter.exclude_tags.join(" #")));
             }
             chips.push((parts.join("，").into(), 2));
         }
         if self.semantic {
-            chips.push(("语义搜索".into(), 3));
+            chips.push((t!("语义搜索").into(), 3));
         }
         if let Some(source) = &self.filter.source {
-            chips.push((format!("来源：{}", stats::source_label(source)).into(), 4));
+            chips.push((t!("来源：{}", stats::source_label(source)).into(), 4));
         }
         if chips.is_empty() {
             return None;
@@ -750,7 +750,7 @@ impl MemoStream {
                     Button::new("chip-clear")
                         .ghost()
                         .xsmall()
-                        .label("清除全部")
+                        .label(t!("清除全部"))
                         .on_click(cx.listener(|this, _, window, cx| this.clear_filters(window, cx))),
                 ),
         )
@@ -763,12 +763,12 @@ impl MemoStream {
             let theme = cx.theme();
             let text = if self.items.is_empty() {
                 if self.filter.is_empty() {
-                    "还没有笔记。写下第一条想法吧：不必完整，不必正确，记下就好。".to_string()
+                    t!("还没有笔记。写下第一条想法吧：不必完整，不必正确，记下就好。").to_string()
                 } else {
-                    "没有找到匹配的笔记".to_string()
+                    t!("没有找到匹配的笔记").to_string()
                 }
             } else {
-                "已全部加载笔记".to_string()
+                t!("已全部加载笔记").to_string()
             };
             return div()
                 .py_6()
@@ -873,12 +873,12 @@ impl MemoStream {
                         .border_color(theme.border)
                         .shadow_lg()
                         .occlude()
-                        .child(div().text_sm().mr_2().child(format!("已选择 {count} 条")))
+                        .child(div().text_sm().mr_2().child(t!("已选择 {} 条", count)))
                         .child(
                             Button::new("select-all")
                                 .ghost()
                                 .small()
-                                .label(if all { "取消全选" } else { "全选" })
+                                .label(if all { t!("取消全选") } else { t!("全选") })
                                 .on_click(cx.listener(|this, _, _, cx| this.toggle_select_all(cx))),
                         )
                         .child(
@@ -886,7 +886,7 @@ impl MemoStream {
                                 .ghost()
                                 .small()
                                 .icon(Icon::new(Lucide::Hash))
-                                .label("添加标签")
+                                .label(t!("添加标签"))
                                 .disabled(none)
                                 .on_click(cx.listener(|this, _, window, cx| this.tag_selected(window, cx))),
                         )
@@ -895,7 +895,7 @@ impl MemoStream {
                                 .ghost()
                                 .small()
                                 .icon(Icon::new(Lucide::Download))
-                                .label("导出")
+                                .label(t!("导出"))
                                 .disabled(none)
                                 .on_click(cx.listener(|this, _, window, cx| this.export_selected(window, cx))),
                         )
@@ -904,7 +904,7 @@ impl MemoStream {
                                 .ghost()
                                 .small()
                                 .icon(Icon::new(Lucide::Trash).text_color(theme.danger))
-                                .label("删除")
+                                .label(t!("删除"))
                                 .disabled(none)
                                 .on_click(cx.listener(|this, _, window, cx| this.trash_selected(window, cx))),
                         )
@@ -912,7 +912,7 @@ impl MemoStream {
                             Button::new("select-done")
                                 .primary()
                                 .small()
-                                .label("完成")
+                                .label(t!("完成"))
                                 .on_click(cx.listener(|this, _, _, cx| this.stop_selecting(cx))),
                         ),
                 )
@@ -921,7 +921,7 @@ impl MemoStream {
     }
 }
 
-/// Writes the memos to a Markdown file in ~/Downloads/MindFlow and offers to reveal it.
+/// Writes the memos to a Markdown file in ~/Downloads/Mori and offers to reveal it.
 fn export_memos(ids: &[MemoId], title: &str, window: &mut Window, cx: &mut App) {
     let result = {
         let library = Library::global(cx);
@@ -937,15 +937,15 @@ fn export_memos(ids: &[MemoId], title: &str, window: &mut Window, cx: &mut App) 
         }
     };
     match result {
-        None => window.push_notification(Notification::warning("没有可导出的笔记"), cx),
+        None => window.push_notification(Notification::warning(t!("没有可导出的笔记")), cx),
         Some(Ok((count, path))) => {
             let reveal = path.clone();
             window.push_notification(
-                Notification::success(format!("{count} 条笔记已导出到 {}", path.display()))
-                    .title("导出完成")
+                Notification::success(t!("{} 条笔记已导出到 {}", count, path.display()))
+                    .title(t!("导出完成"))
                     .action(move |_, _, cx| {
                         let reveal = reveal.clone();
-                        Button::new("reveal-export").xsmall().label("在访达中显示").on_click(cx.listener(move |this, _, window, cx| {
+                        Button::new("reveal-export").xsmall().label(t!("在访达中显示")).on_click(cx.listener(move |this, _, window, cx| {
                             cx.reveal_path(&reveal);
                             this.dismiss(window, cx);
                         }))
@@ -953,7 +953,7 @@ fn export_memos(ids: &[MemoId], title: &str, window: &mut Window, cx: &mut App) 
                 cx,
             );
         }
-        Some(Err(e)) => window.push_notification(Notification::warning(format!("导出失败：{e}")), cx),
+        Some(Err(e)) => window.push_notification(Notification::warning(t!("导出失败：{}", e)), cx),
     }
 }
 
@@ -970,15 +970,15 @@ fn filter_panel(view: WeakEntity<MemoStream>, inputs: [Entity<InputState>; 4], c
     let [from, to, include, exclude] = inputs;
     let label = |text: &str| div().text_xs().text_color(theme.muted_foreground).child(text.to_string());
     let presets = [
-        ("本周", RangePreset::Week),
-        ("本月", RangePreset::Month),
-        ("近一年", RangePreset::Year),
+        (t!("本周"), RangePreset::Week),
+        (t!("本月"), RangePreset::Month),
+        (t!("近一年"), RangePreset::Year),
     ];
     v_flex()
         .w(px(340.))
         .gap_3()
         .p_1()
-        .child(label("快捷筛选"))
+        .child(label(t!("快捷筛选")))
         .child(
             h_flex().flex_wrap().gap_1p5().children(QuickFilter::ALL.iter().map(|&q| {
                 let view = view.clone();
@@ -996,7 +996,7 @@ fn filter_panel(view: WeakEntity<MemoStream>, inputs: [Entity<InputState>; 4], c
         .child(div().h_px().bg(theme.border))
         .child(
             h_flex()
-                .child(label("自定范围 · 日期"))
+                .child(label(t!("自定范围 · 日期")))
                 .child(div().flex_1())
                 .children(presets.iter().map(|(name, preset)| {
                     let view = view.clone();
@@ -1017,7 +1017,7 @@ fn filter_panel(view: WeakEntity<MemoStream>, inputs: [Entity<InputState>; 4], c
                 .child("—")
                 .child(div().flex_1().child(Input::new(&to).small())),
         )
-        .child(label("标签"))
+        .child(label(t!("标签")))
         .child(Input::new(&include).small())
         .child(Input::new(&exclude).small())
         .when_some(error, |this, e| this.child(div().text_xs().text_color(theme.danger).child(e)))
@@ -1026,7 +1026,7 @@ fn filter_panel(view: WeakEntity<MemoStream>, inputs: [Entity<InputState>; 4], c
             h_flex()
                 .gap_2()
                 .child(
-                    Switch::new("semantic-switch").small().checked(semantic).label("语义搜索").on_change({
+                    Switch::new("semantic-switch").small().checked(semantic).label(t!("语义搜索")).on_change({
                         let view = view.clone();
                         move |checked: &bool, _, cx| {
                             let checked = *checked;
@@ -1034,14 +1034,14 @@ fn filter_panel(view: WeakEntity<MemoStream>, inputs: [Entity<InputState>; 4], c
                         }
                     }),
                 )
-                .child(div().flex_1().text_xs().text_color(theme.muted_foreground).child("按意思而不是字面匹配"))
+                .child(div().flex_1().text_xs().text_color(theme.muted_foreground).child(t!("按意思而不是字面匹配")))
                 .child(div().size_2().rounded_full().bg(if semantic { s.accent } else { theme.transparent })),
         )
         .child(
             h_flex()
                 .gap_2()
                 .justify_end()
-                .child(Button::new("filter-reset").ghost().small().label("重置").on_click({
+                .child(Button::new("filter-reset").ghost().small().label(t!("重置")).on_click({
                     let view = view.clone();
                     move |_, window, cx| {
                         let _ = view.update(cx, |this, cx| this.reset_advanced(window, cx));

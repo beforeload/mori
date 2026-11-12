@@ -1,4 +1,4 @@
-//! Model Context Protocol server over stdio (`mindflow --mcp`), so AI tools such as
+//! Model Context Protocol server over stdio (`mori --mcp`), so AI tools such as
 //! Claude Desktop, Cursor or Cherry Studio can search, read and write memos.
 
 use std::io::{BufRead, Write};
@@ -64,8 +64,8 @@ fn handle(store: &mut Store, method: &str, params: &Value) -> Result<Value> {
             Ok(json!({
                 "protocolVersion": version,
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "mindflow", "version": env!("CARGO_PKG_VERSION")},
-                "instructions": "MindFlow 是用户的卡片笔记库。可以搜索、阅读、创建和修改笔记，读取记忆档案。修改或删除前请向用户确认。"
+                "serverInfo": {"name": "mori", "version": env!("CARGO_PKG_VERSION")},
+                "instructions": t!("Mori 是用户的卡片笔记库。可以搜索、阅读、创建和修改笔记，读取记忆档案。修改或删除前请向用户确认。")
             }))
         }
         "ping" => Ok(json!({})),
@@ -76,7 +76,7 @@ fn handle(store: &mut Store, method: &str, params: &Value) -> Result<Value> {
             match call_tool(store, name, &args) {
                 Ok(text) => Ok(json!({"content": [{"type": "text", "text": text}]})),
                 Err(err) => Ok(json!({
-                    "content": [{"type": "text", "text": format!("错误：{err}")}],
+                    "content": [{"type": "text", "text": t!("错误：{}", err)}],
                     "isError": true
                 })),
             }
@@ -99,41 +99,41 @@ pub fn tool_definitions() -> Vec<Value> {
     vec![
         tool(
             "search_memos",
-            "搜索笔记。query 为关键词（空格分隔，需全部命中）；semantic=true 时按语义相关度排序。",
+            t!("搜索笔记。query 为关键词（空格分隔，需全部命中）；semantic=true 时按语义相关度排序。"),
             json!({
                 "query": {"type": "string"},
-                "tag": {"type": "string", "description": "标签，不含 #，包含子标签"},
-                "since": {"type": "string", "description": "开始日期 YYYY-MM-DD"},
-                "until": {"type": "string", "description": "结束日期 YYYY-MM-DD"},
+                "tag": {"type": "string", "description": t!("标签，不含 #，包含子标签")},
+                "since": {"type": "string", "description": t!("开始日期 YYYY-MM-DD")},
+                "until": {"type": "string", "description": t!("结束日期 YYYY-MM-DD")},
                 "semantic": {"type": "boolean"},
                 "limit": {"type": "integer", "default": 20}
             }),
             &[],
         ),
-        tool("get_memo", "读取一条笔记的完整内容、反向链接。", json!({"id": {"type": "string"}}), &["id"]),
+        tool("get_memo", t!("读取一条笔记的完整内容、反向链接。"), json!({"id": {"type": "string"}}), &["id"]),
         tool(
             "create_memo",
-            "创建一条笔记。内容中可使用 #标签、#标签/子标签，以及 [[memo:ID]] 引用其他笔记。",
+            t!("创建一条笔记。内容中可使用 #标签、#标签/子标签，以及 [[memo:ID]] 引用其他笔记。"),
             json!({"content": {"type": "string"}}),
             &["content"],
         ),
         tool(
             "update_memo",
-            "修改一条笔记的内容（旧内容保存在历史版本中）。",
+            t!("修改一条笔记的内容（旧内容保存在历史版本中）。"),
             json!({"id": {"type": "string"}, "content": {"type": "string"}}),
             &["id", "content"],
         ),
-        tool("delete_memo", "把一条笔记移入回收站。", json!({"id": {"type": "string"}}), &["id"]),
-        tool("list_tags", "列出全部标签及笔记数量。", json!({}), &[]),
-        tool("get_daily_review", "获取今天的每日回顾笔记。", json!({}), &[]),
+        tool("delete_memo", t!("把一条笔记移入回收站。"), json!({"id": {"type": "string"}}), &["id"]),
+        tool("list_tags", t!("列出全部标签及笔记数量。"), json!({}), &[]),
+        tool("get_daily_review", t!("获取今天的每日回顾笔记。"), json!({}), &[]),
         tool(
             "get_related_memos",
-            "获取与某条笔记语义相关的笔记。",
+            t!("获取与某条笔记语义相关的笔记。"),
             json!({"id": {"type": "string"}, "limit": {"type": "integer", "default": 8}}),
             &["id"],
         ),
-        tool("get_memory_profile", "读取用户的记忆档案（用户画像与记忆文档）。", json!({}), &[]),
-        tool("get_stats", "获取记录统计：笔记数、标签数、记录天数、字数等。", json!({}), &[]),
+        tool("get_memory_profile", t!("读取用户的记忆档案（用户画像与记忆文档）。"), json!({}), &[]),
+        tool("get_stats", t!("获取记录统计：笔记数、标签数、记录天数、字数等。"), json!({}), &[]),
     ]
 }
 
@@ -190,14 +190,14 @@ pub fn call_tool(store: &mut Store, name: &str, args: &Value) -> Result<String> 
             json!({"count": ids.len(), "memos": ids.iter().map(|id| memo_json(store, id)).collect::<Vec<_>>()})
         }
         "get_memo" => {
-            let id = str_arg(args, "id").ok_or_else(|| anyhow::anyhow!("缺少 id"))?;
+            let id = str_arg(args, "id").ok_or_else(|| anyhow::anyhow!(t!("缺少 id")))?;
             anyhow::ensure!(store.get_active(id).is_some(), "笔记不存在：{id}");
             let mut v = memo_json(store, id);
             v["backlinks"] = json!(store.backlinks(id).iter().map(|m| m.id.clone()).collect::<Vec<_>>());
             v
         }
         "create_memo" => {
-            let content = str_arg(args, "content").ok_or_else(|| anyhow::anyhow!("缺少 content"))?;
+            let content = str_arg(args, "content").ok_or_else(|| anyhow::anyhow!(t!("缺少 content")))?;
             let id = store.create_memo(NewMemo {
                 content: content.to_string(),
                 created_at: None,
@@ -207,8 +207,8 @@ pub fn call_tool(store: &mut Store, name: &str, args: &Value) -> Result<String> 
             json!({"created": memo_json(store, &id)})
         }
         "update_memo" => {
-            let id = str_arg(args, "id").ok_or_else(|| anyhow::anyhow!("缺少 id"))?;
-            let content = str_arg(args, "content").ok_or_else(|| anyhow::anyhow!("缺少 content"))?;
+            let id = str_arg(args, "id").ok_or_else(|| anyhow::anyhow!(t!("缺少 id")))?;
+            let content = str_arg(args, "content").ok_or_else(|| anyhow::anyhow!(t!("缺少 content")))?;
             let images = store
                 .get_active(id)
                 .map(|m| m.images.clone())
@@ -217,10 +217,10 @@ pub fn call_tool(store: &mut Store, name: &str, args: &Value) -> Result<String> 
             json!({"updated": memo_json(store, id)})
         }
         "delete_memo" => {
-            let id = str_arg(args, "id").ok_or_else(|| anyhow::anyhow!("缺少 id"))?;
+            let id = str_arg(args, "id").ok_or_else(|| anyhow::anyhow!(t!("缺少 id")))?;
             anyhow::ensure!(store.get_active(id).is_some(), "笔记不存在：{id}");
             store.trash(id)?;
-            json!({"deleted": id, "note": "已移入回收站，可在 MindFlow 中恢复"})
+            json!({"deleted": id, "note": t!("已移入回收站，可在 Mori 中恢复")})
         }
         "list_tags" => {
             let counts = tags::tag_counts(store.active_memos());
@@ -232,7 +232,7 @@ pub fn call_tool(store: &mut Store, name: &str, args: &Value) -> Result<String> 
             json!(ids.iter().map(|id| memo_json(store, id)).collect::<Vec<_>>())
         }
         "get_related_memos" => {
-            let id = str_arg(args, "id").ok_or_else(|| anyhow::anyhow!("缺少 id"))?;
+            let id = str_arg(args, "id").ok_or_else(|| anyhow::anyhow!(t!("缺少 id")))?;
             let limit = args.get("limit").and_then(|l| l.as_u64()).unwrap_or(8) as usize;
             let docs: Vec<(String, String)> = store
                 .active_memos()
@@ -252,7 +252,7 @@ pub fn call_tool(store: &mut Store, name: &str, args: &Value) -> Result<String> 
         "get_memory_profile" => {
             let profile = store.memory_profile();
             if profile.is_empty() {
-                json!({"message": "用户尚未生成记忆档案，可在 MindFlow 的「记忆档案」页面生成"})
+                json!({"message": t!("用户尚未生成记忆档案，可在 Mori 的「记忆档案」页面生成")})
             } else {
                 json!({"markdown": profile.to_markdown(), "generated_at": time::fmt_datetime(profile.generated_at)})
             }
@@ -272,7 +272,7 @@ mod tests {
 
     #[test]
     fn tools_roundtrip() {
-        let dir = std::env::temp_dir().join(format!("mindflow-mcp-{}", crate::core::store::new_id()));
+        let dir = std::env::temp_dir().join(format!("mori-mcp-{}", crate::core::store::new_id()));
         let mut store = Store::open(&dir).unwrap();
         let created = call_tool(&mut store, "create_memo", &json!({"content": "MCP 写入 #测试"})).unwrap();
         assert!(created.contains("MCP 写入"));

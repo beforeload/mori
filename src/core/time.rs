@@ -36,15 +36,19 @@ pub fn fmt_day(date: NaiveDate) -> String {
 }
 
 pub fn fmt_month(date: NaiveDate) -> String {
-    date.format("%Y 年 %-m 月").to_string()
+    match crate::i18n::language() {
+        crate::i18n::Language::En => date.format("%B %Y").to_string(),
+        _ => date.format("%Y 年 %-m 月").to_string(),
+    }
 }
 
 pub fn relative_day(ts: i64) -> String {
     let days = (today() - date_of(ts)).num_days();
+    let clock = local(ts).format("%H:%M").to_string();
     match days {
-        0 => format!("今日 {}", local(ts).format("%H:%M")),
-        1 => format!("昨日 {}", local(ts).format("%H:%M")),
-        2..=6 => format!("{days} 天前"),
+        0 => t!("今日 {}", clock),
+        1 => t!("昨日 {}", clock),
+        2..=6 => t!("{} 天前", days),
         _ => fmt_minute(ts),
     }
 }

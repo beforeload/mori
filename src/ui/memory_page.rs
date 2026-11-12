@@ -25,12 +25,12 @@ use super::tasks::run_blocking;
 use super::{Command, Lucide, dispatch};
 
 const MIN_MEMOS: usize = 10;
-const RANGES: [(&str, Option<i64>); 4] = [
-    ("全部时间", None),
-    ("近一年", Some(365)),
-    ("近半年", Some(182)),
-    ("近三个月", Some(91)),
-];
+fn ranges() -> [(&'static str, Option<i64>); 4] { [
+    (t!("全部时间"), None),
+    (t!("近一年"), Some(365)),
+    (t!("近半年"), Some(182)),
+    (t!("近三个月"), Some(91)),
+]}
 
 #[derive(Clone, Debug, PartialEq)]
 enum Stage {
@@ -114,9 +114,9 @@ pub struct MemoryPage {
 impl MemoryPage {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let profile = Library::global(cx).read(cx).store().memory_profile();
-        let tag_input = cx.new(|cx| InputState::new(window, cx).placeholder("只看某个标签（可选）"));
+        let tag_input = cx.new(|cx| InputState::new(window, cx).placeholder(t!("只看某个标签（可选）")));
         let compare_input = cx.new(|cx| {
-            InputState::new(window, cx).default_value("给我推荐一本适合现在的我读的书，并说明理由。")
+            InputState::new(window, cx).default_value(t!("给我推荐一本适合现在的我读的书，并说明理由。"))
         });
         Self {
             stage: if profile.is_empty() { Stage::Idle } else { Stage::Done },
@@ -133,7 +133,7 @@ impl MemoryPage {
     }
 
     fn selected<'a>(&self, lib: &'a Library, cx: &gpui_kit::App) -> Vec<&'a Memo> {
-        let cutoff = RANGES[self.range]
+        let cutoff = ranges()[self.range]
             .1
             .map(|d| time::start_of_day(time::today() - chrono::Duration::days(d)));
         let tag = self.tag_input.read(cx).value().trim().trim_start_matches('#').to_string();
@@ -149,12 +149,12 @@ impl MemoryPage {
         let lib = library.read(cx);
         let cfg = lib.settings().ai.clone();
         if !cfg.is_configured() {
-            window.push_notification("请先在设置中配置 AI 服务", cx);
+            window.push_notification(t!("请先在设置中配置 AI 服务"), cx);
             return;
         }
         let memos = self.selected(lib, cx);
         if memos.len() < MIN_MEMOS {
-            self.stage = Stage::Failed(format!("至少需要 {MIN_MEMOS} 条笔记才能生成记忆档案（建议 30 条以上），当前范围内只有 {} 条", memos.len()));
+            self.stage = Stage::Failed(t!("至少需要 {} 条笔记才能生成记忆档案（建议 30 条以上），当前范围内只有 {} 条", MIN_MEMOS, memos.len()));
             cx.notify();
             return;
         }
@@ -201,7 +201,7 @@ impl MemoryPage {
         }
         let cfg = Library::global(cx).read(cx).settings().ai.clone();
         if !cfg.is_configured() {
-            window.push_notification("请先在设置中配置 AI 服务", cx);
+            window.push_notification(t!("请先在设置中配置 AI 服务"), cx);
             return;
         }
         let memory = self.profile.to_markdown();
@@ -225,8 +225,8 @@ impl MemoryPage {
             let (a, b) = (with.await, without.await);
             let fmt = |r: Option<anyhow::Result<String>>| match r {
                 Some(Ok(t)) => t,
-                Some(Err(e)) => format!("出错了：{e}"),
-                None => "出错了".into(),
+                Some(Err(e)) => t!("出错了：{}", e),
+                None => t!("出错了").into(),
             };
             let _ = this.update(cx, |this, cx| {
                 this.compare = Some((fmt(a), fmt(b)));
@@ -248,8 +248,8 @@ impl MemoryPage {
                         let _ = window.update(cx, |_, window, cx| {
                             window.push_notification(
                                 match result {
-                                    Ok(()) => format!("已导出到 {}", path.display()),
-                                    Err(e) => format!("导出失败：{e}"),
+                                    Ok(()) => t!("已导出到 {}", path.display()),
+                                    Err(e) => t!("导出失败：{}", e),
                                 },
                                 cx,
                             )
@@ -264,12 +264,12 @@ impl MemoryPage {
     fn render_progress(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let theme = cx.theme();
         let (label, value) = match &self.stage {
-            Stage::Reading => ("读取笔记…".to_string(), 5.0),
+            Stage::Reading => (t!("读取笔记…").to_string(), 5.0),
             Stage::Extracting { done, total } => (
-                format!("提取记忆碎片 {}/{}", done + 1, total),
+                t!("提取记忆碎片 {}/{}", done + 1, total),
                 10.0 + 75.0 * (*done as f32 / (*total).max(1) as f32),
             ),
-            Stage::Integrating => ("整合档案…".to_string(), 90.0),
+            Stage::Integrating => (t!("整合档案…").to_string(), 90.0),
             Stage::Failed(err) => {
                 return Some(div().text_sm().text_color(theme.danger).child(err.clone()).into_any_element());
             }
@@ -282,7 +282,7 @@ impl MemoryPage {
                     h_flex()
                         .gap_4()
                         .text_xs()
-                        .children(["读取笔记", "提取记忆", "整合档案", "完成"].iter().enumerate().map(|(i, s)| {
+                        .children([t!("读取笔记"), t!("提取记忆"), t!("整合档案"), t!("完成")].iter().enumerate().map(|(i, s)| {
                             let active = match &self.stage {
                                 Stage::Reading => i == 0,
                                 Stage::Extracting { .. } => i == 1,
@@ -296,7 +296,7 @@ impl MemoryPage {
                         })),
                 )
                 .child(Progress::new("memory-progress").value(value))
-                .child(div().text_xs().text_color(theme.muted_foreground).child(format!("{label}  可以先去做别的事，完成后这里会显示结果。")))
+                .child(div().text_xs().text_color(theme.muted_foreground).child(t!("{}  可以先去做别的事，完成后这里会显示结果。", label)))
                 .into_any_element(),
         )
     }
@@ -325,7 +325,7 @@ impl MemoryPage {
                                     Button::new(SharedString::from(format!("frag-src-{category}-{i}")))
                                         .ghost()
                                         .xsmall()
-                                        .label("来源")
+                                        .label(t!("来源"))
                                         .on_click(move |_, window, cx| dispatch(Command::OpenMemo(id.clone()), window, cx)),
                                 )
                             })
@@ -364,12 +364,12 @@ impl Render for MemoryPage {
                     .child(
                         v_flex()
                             .gap_1()
-                            .child(h_flex().gap_1().children(sidebar_toggle(cx)).child(div().text_lg().font_semibold().child("记忆档案")))
+                            .child(h_flex().gap_1().children(sidebar_toggle(cx)).child(div().text_lg().font_semibold().child(t!("记忆档案"))))
                             .child(
                                 div()
                                     .text_sm()
                                     .text_color(theme.muted_foreground)
-                                    .child("把散落的笔记萃取成一份 AI 能读懂的结构化记忆：「用户画像」记录你是谁，「记忆文档」记录你在想什么。通过 MCP 或复制，让任何 AI 都真正了解你。"),
+                                    .child(t!("把散落的笔记萃取成一份 AI 能读懂的结构化记忆：「用户画像」记录你是谁，「记忆文档」记录你在想什么。通过 MCP 或复制，让任何 AI 都真正了解你。")),
                             ),
                     )
                     .when(!configured, |this| {
@@ -380,8 +380,8 @@ impl Render for MemoryPage {
                                 .rounded_md()
                                 .bg(theme.warning.opacity(0.12))
                                 .child(Icon::new(Lucide::CircleAlert).small().text_color(theme.warning))
-                                .child(div().flex_1().text_sm().child("生成记忆档案需要先配置 AI 服务"))
-                                .child(Button::new("memory-settings").small().label("去设置").on_click(|_, window, cx| {
+                                .child(div().flex_1().text_sm().child(t!("生成记忆档案需要先配置 AI 服务")))
+                                .child(Button::new("memory-settings").small().label(t!("去设置")).on_click(|_, window, cx| {
                                     dispatch(Command::OpenSettings(super::settings_page::SettingsSection::Ai), window, cx)
                                 })),
                         )
@@ -406,7 +406,7 @@ impl Render for MemoryPage {
                                                 this.range = *ix;
                                                 cx.notify();
                                             }))
-                                            .children(RANGES.iter().map(|(l, _)| *l)),
+                                            .children(ranges().iter().map(|(l, _)| *l)),
                                     )
                                     .child(div().w(px(200.)).child(Input::new(&self.tag_input).small()))
                                     .child(div().flex_1())
@@ -414,7 +414,7 @@ impl Render for MemoryPage {
                                         Button::new("memory-generate")
                                             .primary()
                                             .icon(Icon::new(Lucide::Brain))
-                                            .label(if has_profile { "重新生成" } else { "开始生成" })
+                                            .label(if has_profile { t!("重新生成") } else { t!("开始生成") })
                                             .loading(running)
                                             .disabled(running || !configured)
                                             .on_click(cx.listener(|this, _, window, cx| this.start(window, cx))),
@@ -424,7 +424,7 @@ impl Render for MemoryPage {
                                 div()
                                     .text_xs()
                                     .text_color(theme.muted_foreground)
-                                    .child(format!("范围内共 {count} 条笔记（至少 {MIN_MEMOS} 条，建议 30 条以上）。AI 会逐批阅读笔记、提取记忆碎片，再整合成档案，可能需要几分钟。")),
+                                    .child(t!("范围内共 {} 条笔记（至少 {} 条，建议 30 条以上）。AI 会逐批阅读笔记、提取记忆碎片，再整合成档案，可能需要几分钟。", count, MIN_MEMOS)),
                             )
                             .children(self.render_progress(cx)),
                     )
@@ -448,16 +448,16 @@ impl Render for MemoryPage {
                                                     this.tab = *ix;
                                                     cx.notify();
                                                 }))
-                                                .child("用户画像")
-                                                .child("记忆文档")
-                                                .child(format!("记忆碎片 {}", self.profile.fragments.len())),
+                                                .child(t!("用户画像"))
+                                                .child(t!("记忆文档"))
+                                                .child(t!("记忆碎片 {}", self.profile.fragments.len())),
                                         )
                                         .child(div().flex_1())
                                         .child(
                                             div()
                                                 .text_xs()
                                                 .text_color(theme.muted_foreground)
-                                                .child(format!(
+                                                .child(t!(
                                                     "{} · 基于 {} 条笔记",
                                                     time::fmt_minute(self.profile.generated_at),
                                                     self.profile.memo_count
@@ -474,10 +474,10 @@ impl Render for MemoryPage {
                                                 .outline()
                                                 .small()
                                                 .icon(Icon::new(Lucide::Copy))
-                                                .label("复制记忆档案")
+                                                .label(t!("复制记忆档案"))
                                                 .on_click(cx.listener(|this, _, window, cx| {
                                                     cx.write_to_clipboard(ClipboardItem::new_string(this.profile.to_markdown()));
-                                                    window.push_notification("已复制，可粘贴到任意 AI 的系统提示词中", cx);
+                                                    window.push_notification(t!("已复制，可粘贴到任意 AI 的系统提示词中"), cx);
                                                 })),
                                         )
                                         .child(
@@ -485,7 +485,7 @@ impl Render for MemoryPage {
                                                 .outline()
                                                 .small()
                                                 .icon(Icon::new(Lucide::FileDown))
-                                                .label("导出 memory.md")
+                                                .label(t!("导出 memory.md"))
                                                 .on_click(cx.listener(|this, _, window, cx| this.export(window, cx))),
                                         ),
                                 ),
@@ -498,8 +498,8 @@ impl Render for MemoryPage {
                                 .bg(theme.background)
                                 .border_1()
                                 .border_color(theme.border)
-                                .child(div().text_sm().font_semibold().child("对比记忆效果"))
-                                .child(div().text_xs().text_color(theme.muted_foreground).child("同一个问题，分别在有记忆和没有记忆时回答，感受一下差别。"))
+                                .child(div().text_sm().font_semibold().child(t!("对比记忆效果")))
+                                .child(div().text_xs().text_color(theme.muted_foreground).child(t!("同一个问题，分别在有记忆和没有记忆时回答，感受一下差别。")))
                                 .child(
                                     h_flex()
                                         .gap_2()
@@ -507,7 +507,7 @@ impl Render for MemoryPage {
                                         .child(
                                             Button::new("memory-compare")
                                                 .small()
-                                                .label("对比")
+                                                .label(t!("对比"))
                                                 .loading(self.comparing)
                                                 .disabled(self.comparing || !configured)
                                                 .on_click(cx.listener(|this, _, window, cx| this.run_compare(window, cx))),
@@ -526,7 +526,7 @@ impl Render for MemoryPage {
                                                     .p_3()
                                                     .rounded_md()
                                                     .bg(theme.green.opacity(0.08))
-                                                    .child(div().text_xs().font_semibold().child("有记忆"))
+                                                    .child(div().text_xs().font_semibold().child(t!("有记忆")))
                                                     .child(TextView::markdown("compare-with", with)),
                                             )
                                             .child(
@@ -537,7 +537,7 @@ impl Render for MemoryPage {
                                                     .p_3()
                                                     .rounded_md()
                                                     .bg(theme.secondary.opacity(0.6))
-                                                    .child(div().text_xs().font_semibold().child("没有记忆"))
+                                                    .child(div().text_xs().font_semibold().child(t!("没有记忆")))
                                                     .child(TextView::markdown("compare-without", without)),
                                             ),
                                     )

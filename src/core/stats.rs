@@ -159,27 +159,30 @@ pub fn distributions<'a>(memos: impl Iterator<Item = &'a Memo>) -> Distributions
         .collect();
     d.sources = sources.into_iter().collect();
     d.media = vec![
-        ("纯文字".into(), plain),
-        ("图片".into(), image),
-        ("链接".into(), link),
-        ("引用".into(), reference),
+        (t!("纯文字").into(), plain),
+        (t!("图片").into(), image),
+        (t!("链接").into(), link),
+        (t!("引用").into(), reference),
     ];
     d
 }
 
 pub fn source_label(source: &str) -> &str {
     match source {
-        "app" => "应用内",
-        "import" => "导入",
+        "app" => t!("应用内"),
+        "import" => t!("导入"),
         "api" => "API",
         "mcp" => "MCP",
-        "ai" => "AI 对话",
+        "ai" => t!("AI 对话"),
         other => other,
     }
 }
 
 pub fn weekday_label(i: usize) -> &'static str {
-    ["一", "二", "三", "四", "五", "六", "日"][i % 7]
+    match crate::i18n::language() {
+        crate::i18n::Language::En => ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i % 7],
+        _ => ["一", "二", "三", "四", "五", "六", "日"][i % 7],
+    }
 }
 
 /// Monday of the week containing `date`.

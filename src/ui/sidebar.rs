@@ -41,14 +41,16 @@ pub fn sidebar_toggle(cx: &App) -> Option<AnyElement> {
             .ghost()
             .small()
             .icon(Icon::new(Lucide::Menu).text_color(cx.theme().muted_foreground))
-            .tooltip_with_action("显示侧边栏", &ToggleSidebar, None)
+            .tooltip_with_action(t!("显示侧边栏"), &ToggleSidebar, None)
             .on_click(|_, window, cx| dispatch(Command::ToggleSidebar, window, cx))
             .into_any_element()
     })
 }
 
 const HEATMAP_WEEKS: i64 = 12;
-const MONTHS: [&str; 12] = ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"];
+fn months() -> [&'static str; 12] {
+    [t!("一月"), t!("二月"), t!("三月"), t!("四月"), t!("五月"), t!("六月"), t!("七月"), t!("八月"), t!("九月"), t!("十月"), t!("十一月"), t!("十二月")]
+}
 
 fn heatmap(days: &HashMap<NaiveDate, DayStat>, selected: Option<NaiveDate>, cx: &App) -> impl IntoElement {
     let theme = cx.theme();
@@ -71,7 +73,7 @@ fn heatmap(days: &HashMap<NaiveDate, DayStat>, selected: Option<NaiveDate>, cx: 
             let m = month_of(*week);
             let starts = i == 0 || month_of(weeks[i - 1]) != m;
             // Skip a label squeezed against the left edge by a month that barely started.
-            (starts && !(i == 0 && month_of(weeks[1.min(weeks.len() - 1)]) != m)).then(|| MONTHS[m as usize])
+            (starts && !(i == 0 && month_of(weeks[1.min(weeks.len() - 1)]) != m)).then(|| months()[m as usize])
         })
         .collect();
     v_flex()
@@ -84,7 +86,7 @@ fn heatmap(days: &HashMap<NaiveDate, DayStat>, selected: Option<NaiveDate>, cx: 
                     let count = days.get(&date).map(|s| s.count).unwrap_or(0);
                     let level = stats::heat_level(count, max);
                     let future = date > today;
-                    let tip = format!("{} · {} 条笔记", time::fmt_day(date), count);
+                    let tip = t!("{} · {} 条笔记", time::fmt_day(date), count);
                     div()
                         .id(SharedString::from(format!("heat-{date}")))
                         .size(cell)
@@ -210,14 +212,14 @@ fn tag_row(
         .context_menu(move |menu, _, cx| {
             let tag_pinned = Library::global(cx).read(cx).store().tag_meta(&menu_path).pinned;
             menu.item(menu_item(
-                if tag_pinned { "取消置顶" } else { "置顶" },
+                if tag_pinned { t!("取消置顶") } else { t!("置顶") },
                 if tag_pinned { Lucide::PinOff } else { Lucide::Pin },
                 Command::TogglePinTag(menu_path.clone()),
             ))
-            .item(menu_item("编辑标签/图标", Lucide::Pencil, Command::EditTag(menu_path.clone())))
-            .item(menu_item("AI 洞察此标签", Lucide::Sparkles, Command::InsightMemos(Vec::new(), format!("#{}", menu_path))))
+            .item(menu_item(t!("编辑标签/图标"), Lucide::Pencil, Command::EditTag(menu_path.clone())))
+            .item(menu_item(t!("AI 洞察此标签"), Lucide::Sparkles, Command::InsightMemos(Vec::new(), format!("#{}", menu_path))))
             .separator()
-            .item(danger_menu_item("删除", Lucide::Trash, Command::DeleteTag(menu_path.clone()), cx))
+            .item(danger_menu_item(t!("删除"), Lucide::Trash, Command::DeleteTag(menu_path.clone()), cx))
         });
     let mut column = v_flex().child(row);
     if has_children && is_expanded {
@@ -264,14 +266,14 @@ fn profile_menu(nickname: String, cx: &App) -> impl IntoElement {
                 .child(Icon::new(Lucide::ChevronDown).xsmall().text_color(theme.muted_foreground)),
         )
         .dropdown_menu_with_anchor(Anchor::TopLeft, |menu, _, _| {
-            menu.item(menu_item("记录统计", Lucide::ChartNoAxesColumn, Command::Navigate(Route::Stats)))
-                .item(menu_item("AI 记忆档案", Lucide::Brain, Command::Navigate(Route::Memory)))
-                .item(menu_item("认知地图", Lucide::Mountain, Command::Navigate(Route::Map)))
-                .item(menu_item("笔记关系图", Lucide::Waypoints, Command::Navigate(Route::Graph)))
+            menu.item(menu_item(t!("记录统计"), Lucide::ChartNoAxesColumn, Command::Navigate(Route::Stats)))
+                .item(menu_item(t!("AI 记忆档案"), Lucide::Brain, Command::Navigate(Route::Memory)))
+                .item(menu_item(t!("认知地图"), Lucide::Mountain, Command::Navigate(Route::Map)))
+                .item(menu_item(t!("笔记关系图"), Lucide::Waypoints, Command::Navigate(Route::Graph)))
                 .separator()
-                .item(menu_item("回收站", Lucide::Trash, Command::Navigate(Route::Trash)))
-                .item(menu_item("账号与资料", Lucide::UserRound, Command::OpenSettings(SettingsSection::Account)))
-                .item(menu_item("设置", Lucide::Settings, Command::OpenSettings(SettingsSection::General)))
+                .item(menu_item(t!("回收站"), Lucide::Trash, Command::Navigate(Route::Trash)))
+                .item(menu_item(t!("账号与资料"), Lucide::UserRound, Command::OpenSettings(SettingsSection::Account)))
+                .item(menu_item(t!("设置"), Lucide::Settings, Command::OpenSettings(SettingsSection::General)))
         })
 }
 
@@ -342,7 +344,7 @@ pub fn render_sidebar(ws: &Workspace, cx: &mut Context<Workspace>) -> impl IntoE
                                 .ghost()
                                 .small()
                                 .icon(Icon::new(Lucide::RefreshCw).text_color(muted))
-                                .tooltip("刷新：立即读取 MCP / API 等外部写入")
+                                .tooltip(t!("刷新：立即读取 MCP / API 等外部写入"))
                                 .on_click(|_, window, cx| dispatch(Command::Refresh, window, cx)),
                         )
                         .child(
@@ -350,7 +352,7 @@ pub fn render_sidebar(ws: &Workspace, cx: &mut Context<Workspace>) -> impl IntoE
                                 .ghost()
                                 .small()
                                 .icon(Icon::new(Lucide::Menu).text_color(muted))
-                                .tooltip_with_action("隐藏侧边栏", &ToggleSidebar, None)
+                                .tooltip_with_action(t!("隐藏侧边栏"), &ToggleSidebar, None)
                                 .on_click(|_, window, cx| dispatch(Command::ToggleSidebar, window, cx)),
                         ),
                 )
@@ -360,9 +362,9 @@ pub fn render_sidebar(ws: &Workspace, cx: &mut Context<Workspace>) -> impl IntoE
                         .justify_between()
                         .pr_4()
                         .cursor_pointer()
-                        .child(stat(overview.memos, "笔记"))
-                        .child(stat(overview.tags, "标签"))
-                        .child(stat(overview.days, "天"))
+                        .child(stat(overview.memos, t!("笔记")))
+                        .child(stat(overview.tags, t!("标签")))
+                        .child(stat(overview.days, t!("天")))
                         .on_click(|_, window, cx| dispatch(Command::Navigate(Route::Stats), window, cx)),
                 )
                 .when(settings.show_heatmap, |this| this.child(heatmap(&days, selected_day, cx))),
@@ -383,27 +385,27 @@ pub fn render_sidebar(ws: &Workspace, cx: &mut Context<Workspace>) -> impl IntoE
                 .child(nav_item(Route::Insight, Lucide::ScanEye, nav_route, cx))
                 .child(nav_item(Route::Walk, Lucide::Footprints, nav_route, cx))
                 .child(nav_item(Route::Map, Lucide::Mountain, nav_route, cx))
-                .child(section_label("置顶标签", cx))
+                .child(section_label(t!("置顶标签"), cx))
                 .when(pinned_tags.is_empty(), |this| {
                     this.child(
                         div()
                             .px_3()
                             .text_xs()
                             .text_color(theme.muted_foreground.opacity(0.7))
-                            .child("右键标签选择「置顶」"),
+                            .child(t!("右键标签选择「置顶」")),
                     )
                 })
                 .children(pinned_tags.iter().map(|node| {
                     tag_row(node, 0, selected_tag.as_deref(), &expanded, &icons, true, cx)
                 }))
-                .child(section_label("全部标签", cx))
+                .child(section_label(t!("全部标签"), cx))
                 .when(tree.is_empty(), |this| {
                     this.child(
                         div()
                             .px_3()
                             .text_xs()
                             .text_color(theme.muted_foreground.opacity(0.7))
-                            .child("输入 #标签 即可创建，用 / 分级，如 #读书/小说"),
+                            .child(t!("输入 #标签 即可创建，用 / 分级，如 #读书/小说")),
                     )
                 })
                 .children(tree.iter().map(|node| {

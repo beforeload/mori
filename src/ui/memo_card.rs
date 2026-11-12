@@ -68,29 +68,29 @@ fn card_menu(memo: &Memo, mode: CardMode, scope: &'static str) -> impl IntoEleme
             let id = id.clone();
             if mode == CardMode::Trash {
                 return menu
-                    .item(menu_item("恢复", Lucide::ArchiveRestore, Command::Restore(id.clone())))
+                    .item(menu_item(t!("恢复"), Lucide::ArchiveRestore, Command::Restore(id.clone())))
                     .separator()
-                    .item(danger_menu_item("彻底删除", Lucide::Trash, Command::Purge(id), cx));
+                    .item(danger_menu_item(t!("彻底删除"), Lucide::Trash, Command::Purge(id), cx));
             }
-            menu.item(menu_item("分享图片", Lucide::Share2, Command::ShareImage(id.clone())))
-                .item(menu_item("批注", Lucide::MessageSquare, Command::Annotate(id.clone())))
-                .item(menu_item("编辑", Lucide::SquarePen, Command::Edit(id.clone())))
+            menu.item(menu_item(t!("分享图片"), Lucide::Share2, Command::ShareImage(id.clone())))
+                .item(menu_item(t!("批注"), Lucide::MessageSquare, Command::Annotate(id.clone())))
+                .item(menu_item(t!("编辑"), Lucide::SquarePen, Command::Edit(id.clone())))
                 .item(menu_item(
-                    if pinned { "取消置顶" } else { "置顶" },
+                    if pinned { t!("取消置顶") } else { t!("置顶") },
                     if pinned { Lucide::PinOff } else { Lucide::Pin },
                     Command::TogglePin(id.clone()),
                 ))
                 .separator()
-                .item(menu_item("相关笔记与详情", Lucide::PanelRight, Command::OpenMemo(id.clone())))
-                .item(menu_item("AI 洞察", Lucide::Sparkles, Command::InsightMemo(id.clone())))
-                .item(menu_item("从这里开始漫步", Lucide::Footprints, Command::WalkFrom(id.clone())))
-                .item(menu_item("历史版本", Lucide::RotateCcw, Command::History(id.clone())))
+                .item(menu_item(t!("相关笔记与详情"), Lucide::PanelRight, Command::OpenMemo(id.clone())))
+                .item(menu_item(t!("AI 洞察"), Lucide::Sparkles, Command::InsightMemo(id.clone())))
+                .item(menu_item(t!("从这里开始漫步"), Lucide::Footprints, Command::WalkFrom(id.clone())))
+                .item(menu_item(t!("历史版本"), Lucide::RotateCcw, Command::History(id.clone())))
                 .separator()
-                .item(menu_item("复制内容", Lucide::Copy, Command::CopyText(id.clone())))
-                .item(menu_item("复制引用链接", Lucide::Link, Command::CopyLink(id.clone())))
-                .item(menu_item("修改时间", Lucide::Clock, Command::EditTime(id.clone())))
+                .item(menu_item(t!("复制内容"), Lucide::Copy, Command::CopyText(id.clone())))
+                .item(menu_item(t!("复制引用链接"), Lucide::Link, Command::CopyLink(id.clone())))
+                .item(menu_item(t!("修改时间"), Lucide::Clock, Command::EditTime(id.clone())))
                 .separator()
-                .item(danger_menu_item("删除", Lucide::Trash, Command::Trash(id), cx))
+                .item(danger_menu_item(t!("删除"), Lucide::Trash, Command::Trash(id), cx))
         })
 }
 
@@ -181,7 +181,7 @@ pub fn memo_card(memo: &Memo, opts: CardOptions, library: &Library, cx: &App) ->
     if opts.mode == CardMode::Trash
         && let Some(deleted) = memo.deleted_at
     {
-        time_label = format!("{time_label} · 删除于 {}", time::relative_day(deleted));
+        time_label = t!("{} · 删除于 {}", time_label, time::relative_day(deleted));
     }
     let show_source = settings.show_source && !matches!(memo.source.as_str(), "app" | "import");
     let edit_id = id.clone();
@@ -241,7 +241,7 @@ pub fn memo_card(memo: &Memo, opts: CardOptions, library: &Library, cx: &App) ->
                     .text_sm()
                     .text_color(theme.link)
                     .cursor_pointer()
-                    .child("展开")
+                    .child(t!("展开"))
                     .on_click(move |_, window, cx| dispatch(Command::Expand(expand_id.clone()), window, cx)),
             )
         })
@@ -253,7 +253,7 @@ pub fn memo_card(memo: &Memo, opts: CardOptions, library: &Library, cx: &App) ->
                     .text_sm()
                     .text_color(theme.link)
                     .cursor_pointer()
-                    .child("收起")
+                    .child(t!("收起"))
                     .on_click(move |_, window, cx| dispatch(Command::Expand(collapse_id.clone()), window, cx)),
             )
         })
@@ -268,7 +268,7 @@ pub fn memo_card(memo: &Memo, opts: CardOptions, library: &Library, cx: &App) ->
                     .cursor_pointer()
                     .hover(|d| d.text_color(theme.foreground))
                     .child(Icon::new(Lucide::MessagesSquare).xsmall())
-                    .child(format!("{backlinks} 条批注"))
+                    .child(t!("{} 条批注", backlinks))
                     .on_click(move |_, window, cx| dispatch(Command::OpenMemo(detail_id.clone()), window, cx)),
             )
         })

@@ -8,7 +8,7 @@ use regex::Regex;
 
 static TAG_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"#[^\s#]+").unwrap());
 static REF_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\[\[memo:([A-Za-z0-9_-]+)\]\]|mindflow://memo/([A-Za-z0-9_-]+)").unwrap()
+    Regex::new(r"\[\[memo:([A-Za-z0-9_-]+)\]\]|(?:mindflow|mori)://memo/([A-Za-z0-9_-]+)").unwrap()
 });
 static URL_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"https?://[^\s<>"'，。；！？、）】」』《》]+"#).unwrap());

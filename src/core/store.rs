@@ -77,12 +77,28 @@ pub struct Store {
 }
 
 pub fn default_data_dir() -> PathBuf {
-    if let Ok(dir) = std::env::var("MINDFLOW_DATA_DIR") {
+    if let Ok(dir) = std::env::var("MORI_DATA_DIR").or_else(|_| std::env::var("MINDFLOW_DATA_DIR")) {
         return PathBuf::from(dir);
     }
-    dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("MindFlow")
+    let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
+    let mori = base.join("Mori");
+    let old = base.join("MindFlow");
+    if !mori.exists() && old.exists() && std::fs::rename(&old, &mori).is_err() {
+        return old;
+    }
+    mori
+}
+
+/// `mori.db`, or the legacy `mindflow.db` if that is the file still on disk.
+pub fn database_path(dir: &Path) -> PathBuf {
+    let mori = dir.join("mori.db");
+    let old = dir.join("mindflow.db");
+    if !mori.exists() && old.exists() {
+        let _ = std::fs::rename(&old, &mori);
+        let _ = std::fs::rename(dir.join("mindflow.db-wal"), dir.join("mori.db-wal"));
+        let _ = std::fs::rename(dir.join("mindflow.db-shm"), dir.join("mori.db-shm"));
+    }
+    if mori.exists() || !old.exists() { mori } else { old }
 }
 
 pub fn new_id() -> String {
@@ -98,8 +114,8 @@ pub fn content_hash(text: &str) -> String {
 impl Store {
     pub fn open(data_dir: &Path) -> Result<Self> {
         std::fs::create_dir_all(data_dir.join("images"))
-            .with_context(|| format!("无法创建数据目录 {}", data_dir.display()))?;
-        let conn = Connection::open(data_dir.join("mindflow.db"))?;
+            .with_context(|| t!("无法创建数据目录 {}", data_dir.display()))?;
+        let conn = Connection::open(database_path(data_dir))?;
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "busy_timeout", 5000)?;
         conn.execute_batch(SCHEMA)?;
@@ -209,10 +225,19 @@ impl Store {
             .collect::<Result<_, _>>()?;
         drop(stmt);
 
-        self.settings = self
-            .kv_get("settings")
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default();
+        let saved = self.kv_get("settings");
+        self.settings = match saved.as_deref() {
+            Some(json) => serde_json::from_str(json).unwrap_or_default(),
+            None => {
+                let mut settings = Settings::default();
+                settings.language = crate::i18n::system_language();
+                if settings.language == crate::i18n::Language::En {
+                    settings.nickname = "Me".into();
+                }
+                settings
+            }
+        };
+        crate::i18n::set_language(self.settings.language);
         self.bump();
         Ok(())
     }
@@ -315,7 +340,7 @@ impl Store {
 
     pub fn update_memo(&mut self, id: &str, content: String, images: Vec<String>) -> Result<()> {
         let Some(memo) = self.get(id) else {
-            anyhow::bail!("笔记不存在");
+            anyhow::bail!(t!("笔记不存在"));
         };
         if memo.content == content && memo.images == images {
             return Ok(());
@@ -494,10 +519,10 @@ impl Store {
     /// Renames `old` (and every nested tag) to `new` across all memos. Returns the affected count.
     pub fn rename_tag(&mut self, old: &str, new: &str) -> Result<usize> {
         let new = new.trim().trim_start_matches('#').trim_matches('/');
-        anyhow::ensure!(!new.is_empty(), "标签名不能为空");
+        anyhow::ensure!(!new.is_empty(), t!("标签名不能为空"));
         anyhow::ensure!(
             !new.chars().any(|c| c.is_whitespace() || c == '#'),
-            "标签名不能包含空格或 #"
+            t!("标签名不能包含空格或 #")
         );
         if new == old {
             return Ok(0);
@@ -737,7 +762,7 @@ mod tests {
     use super::*;
 
     fn temp_store() -> Store {
-        let dir = std::env::temp_dir().join(format!("mindflow-test-{}", new_id()));
+        let dir = std::env::temp_dir().join(format!("mori-test-{}", new_id()));
         Store::open(&dir).unwrap()
     }
 

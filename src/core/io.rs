@@ -1,7 +1,7 @@
 //! Import and export.
 //!
 //! Export: JSON (complete, re-importable), Markdown and HTML (images copied beside the file).
-//! Import: MindFlow JSON, flomo HTML export, Markdown/TXT, CSV (Day One and generic),
+//! Import: Mori JSON, flomo HTML export, Markdown/TXT, CSV (Day One and generic),
 //! and text copied from WeChat Read (微信读书).
 
 use std::collections::HashSet;
@@ -26,9 +26,9 @@ pub struct ImportReport {
 impl ImportReport {
     pub fn summary(&self) -> String {
         if self.skipped > 0 {
-            format!("导入 {} 条笔记，跳过 {} 条重复内容", self.imported, self.skipped)
+            t!("导入 {} 条笔记，跳过 {} 条重复内容", self.imported, self.skipped)
         } else {
-            format!("导入 {} 条笔记", self.imported)
+            t!("导入 {} 条笔记", self.imported)
         }
     }
 }
@@ -51,7 +51,7 @@ pub fn export_json(store: &Store, path: &Path) -> Result<usize> {
     let memos: Vec<Memo> = active_sorted(store).into_iter().cloned().collect();
     let count = memos.len();
     let file = ExportFile {
-        app: "MindFlow".into(),
+        app: "Mori".into(),
         version: 1,
         exported_at: time::fmt_datetime(time::now()),
         memos,
@@ -79,14 +79,14 @@ fn images_dir_for(path: &Path) -> (PathBuf, String) {
     let stem = path
         .file_stem()
         .and_then(|s| s.to_str())
-        .unwrap_or("mindflow")
+        .unwrap_or("mori")
         .to_string();
     let folder = format!("{stem}_images");
     (path.with_file_name(&folder), folder)
 }
 
 pub fn export_markdown(store: &Store, path: &Path) -> Result<usize> {
-    export_markdown_memos(store, &active_sorted(store), "MindFlow 笔记导出", path)
+    export_markdown_memos(store, &active_sorted(store), t!("Mori 笔记导出"), path)
 }
 
 /// Writes `memos` in the given order; images are copied next to the file.
@@ -114,13 +114,14 @@ fn escape_html(text: &str) -> String {
 pub fn export_html(store: &Store, path: &Path) -> Result<usize> {
     let (image_dir, folder) = images_dir_for(path);
     let memos = active_sorted(store);
-    let mut out = String::from(
-        "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>MindFlow 笔记导出</title>\
-<style>body{font-family:-apple-system,'PingFang SC',sans-serif;max-width:720px;margin:40px auto;color:#222;background:#f6f6f4}\
-.memo{background:#fff;border-radius:10px;padding:16px 20px;margin:12px 0}.time{color:#999;font-size:12px;margin-bottom:8px}\
-.content p{margin:4px 0;line-height:1.7}.files img{max-width:200px;border-radius:6px;margin:6px 6px 0 0}</style></head><body>\n",
+    let title = t!("Mori 笔记导出");
+    let mut out = format!(
+        "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>{title}</title>\
+<style>body{{font-family:-apple-system,'PingFang SC',sans-serif;max-width:720px;margin:40px auto;color:#222;background:#f6f6f4}}\
+.memo{{background:#fff;border-radius:10px;padding:16px 20px;margin:12px 0}}.time{{color:#999;font-size:12px;margin-bottom:8px}}\
+.content p{{margin:4px 0;line-height:1.7}}.files img{{max-width:200px;border-radius:6px;margin:6px 6px 0 0}}</style></head><body>\n",
     );
-    out.push_str(&format!("<h2>MindFlow 笔记导出（{} 条）</h2>\n", memos.len()));
+    out.push_str(&format!("<h2>{}</h2>\n", t!("Mori 笔记导出（{} 条）", memos.len())));
     for memo in &memos {
         out.push_str("<div class=\"memo\">");
         out.push_str(&format!("<div class=\"time\">{}</div><div class=\"content\">", time::fmt_datetime(memo.created_at)));
@@ -205,7 +206,7 @@ pub fn import_files(store: &mut Store, paths: &[PathBuf], skip_duplicates: bool)
             .unwrap_or("")
             .to_lowercase();
         let text = std::fs::read_to_string(path)
-            .with_context(|| format!("无法读取 {}", path.display()))?;
+            .with_context(|| t!("无法读取 {}", path.display()))?;
         match ext.as_str() {
             "json" => import_json(&mut importer, &text)?,
             "html" | "htm" => import_flomo_html(&mut importer, &text, path.parent()),
@@ -542,7 +543,7 @@ mod tests {
     }
 
     fn temp_store() -> (Store, PathBuf) {
-        let dir = std::env::temp_dir().join(format!("mindflow-io-{}", super::super::store::new_id()));
+        let dir = std::env::temp_dir().join(format!("mori-io-{}", super::super::store::new_id()));
         (Store::open(&dir).unwrap(), dir)
     }
 

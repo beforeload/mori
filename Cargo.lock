@@ -3759,29 +3759,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mindflow"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "dirs 7.0.0",
- "gpui-kit",
- "gpui-pre-platform",
- "objc2 0.6.5",
- "raw-window-handle",
- "regex",
- "resvg 0.46.0",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "smol",
- "tiny_http",
- "ureq",
- "uuid",
-]
-
-[[package]]
 name = "miniz_oxide"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3811,6 +3788,29 @@ dependencies = [
  "log",
  "wasi",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "mori"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "dirs 7.0.0",
+ "gpui-kit",
+ "gpui-pre-platform",
+ "objc2 0.6.5",
+ "raw-window-handle",
+ "regex",
+ "resvg 0.46.0",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "smol",
+ "tiny_http",
+ "ureq",
+ "uuid",
 ]
 
 [[package]]

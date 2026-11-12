@@ -149,8 +149,8 @@ impl Library {
     pub fn ref_label(&self, id: &str) -> String {
         match self.store.get(id) {
             Some(m) if !m.is_deleted() => m.snippet(16),
-            Some(_) => "已删除的笔记".into(),
-            None => "笔记不存在".into(),
+            Some(_) => t!("已删除的笔记").into(),
+            None => t!("笔记不存在").into(),
         }
     }
 
@@ -196,6 +196,9 @@ impl Library {
             self._embedding_task = None;
             self.load_dense();
             self.schedule_index(cx);
+        }
+        if before.language != after.language {
+            crate::i18n::set_language(after.language);
         }
         if before.api_enabled != after.api_enabled
             || before.api_port != after.api_port

@@ -1,4 +1,4 @@
-//! The MindFlow look: flomo-style green accent, mode-aware surfaces and memo typography.
+//! The Mori look: flomo-style green accent, mode-aware surfaces and memo typography.
 
 use gpui_kit::component::{ActiveTheme as _, Theme, ThemeMode};
 use gpui_kit::{App, Hsla, Window, WindowAppearance, hsla, px, relative};

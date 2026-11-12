@@ -51,15 +51,15 @@ struct Palette {
 fn palettes(dark: bool) -> [Palette; 3] {
     if dark {
         [
-            Palette { name: "月光", line: hsla(0., 0., 0.92, 1.), glow: hsla(44. / 360., 0.9, 0.62, 1.), dot: hsla(0., 0., 0.85, 1.), label: hsla(0., 0., 0.96, 1.) },
-            Palette { name: "苔原", line: hsla(150. / 360., 0.45, 0.62, 1.), glow: hsla(140. / 360., 0.7, 0.7, 1.), dot: hsla(150. / 360., 0.4, 0.75, 1.), label: hsla(140. / 360., 0.3, 0.92, 1.) },
-            Palette { name: "暮色", line: hsla(28. / 360., 0.75, 0.62, 1.), glow: hsla(16. / 360., 0.9, 0.6, 1.), dot: hsla(34. / 360., 0.8, 0.75, 1.), label: hsla(36. / 360., 0.9, 0.9, 1.) },
+            Palette { name: t!("月光"), line: hsla(0., 0., 0.92, 1.), glow: hsla(44. / 360., 0.9, 0.62, 1.), dot: hsla(0., 0., 0.85, 1.), label: hsla(0., 0., 0.96, 1.) },
+            Palette { name: t!("苔原"), line: hsla(150. / 360., 0.45, 0.62, 1.), glow: hsla(140. / 360., 0.7, 0.7, 1.), dot: hsla(150. / 360., 0.4, 0.75, 1.), label: hsla(140. / 360., 0.3, 0.92, 1.) },
+            Palette { name: t!("暮色"), line: hsla(28. / 360., 0.75, 0.62, 1.), glow: hsla(16. / 360., 0.9, 0.6, 1.), dot: hsla(34. / 360., 0.8, 0.75, 1.), label: hsla(36. / 360., 0.9, 0.9, 1.) },
         ]
     } else {
         [
-            Palette { name: "墨线", line: hsla(0., 0., 0.25, 1.), glow: hsla(38. / 360., 0.95, 0.5, 1.), dot: hsla(0., 0., 0.35, 1.), label: hsla(0., 0., 0.12, 1.) },
-            Palette { name: "苔原", line: hsla(150. / 360., 0.55, 0.32, 1.), glow: hsla(140. / 360., 0.7, 0.42, 1.), dot: hsla(150. / 360., 0.5, 0.35, 1.), label: hsla(150. / 360., 0.6, 0.18, 1.) },
-            Palette { name: "暮色", line: hsla(22. / 360., 0.7, 0.42, 1.), glow: hsla(10. / 360., 0.85, 0.5, 1.), dot: hsla(26. / 360., 0.7, 0.45, 1.), label: hsla(20. / 360., 0.7, 0.25, 1.) },
+            Palette { name: t!("墨线"), line: hsla(0., 0., 0.25, 1.), glow: hsla(38. / 360., 0.95, 0.5, 1.), dot: hsla(0., 0., 0.35, 1.), label: hsla(0., 0., 0.12, 1.) },
+            Palette { name: t!("苔原"), line: hsla(150. / 360., 0.55, 0.32, 1.), glow: hsla(140. / 360., 0.7, 0.42, 1.), dot: hsla(150. / 360., 0.5, 0.35, 1.), label: hsla(150. / 360., 0.6, 0.18, 1.) },
+            Palette { name: t!("暮色"), line: hsla(22. / 360., 0.7, 0.42, 1.), glow: hsla(10. / 360., 0.85, 0.5, 1.), dot: hsla(26. / 360., 0.7, 0.45, 1.), label: hsla(20. / 360., 0.7, 0.25, 1.) },
         ]
     }
 }
@@ -504,17 +504,17 @@ impl MapPage {
         };
         let month = self.months.get(self.month_index).map(|m| time::fmt_month(*m)).unwrap_or_default();
         let nickname = Library::global(cx).read(cx).settings().nickname.clone();
-        let svg = scene_svg(&scene, w, h, dark, &format!("{nickname}的认知地图 · {month}"));
-        match share::render_png(&svg, 1.0).and_then(|png| share::save_png(&png, "认知地图").map(|p| (png, p))) {
+        let svg = scene_svg(&scene, w, h, dark, &t!("{}的认知地图 · {}", nickname, month));
+        match share::render_png(&svg, 1.0).and_then(|png| share::save_png(&png, t!("认知地图")).map(|p| (png, p))) {
             Ok((png, path)) => {
                 cx.write_to_clipboard(ClipboardItem::new_image(&Image::from_bytes(ImageFormat::Png, png)));
                 let reveal = path.clone();
                 window.push_notification(
-                    Notification::success(format!("已保存到 {}，并复制到剪贴板", path.display()))
-                        .title("分享图已生成")
+                    Notification::success(t!("已保存到 {}，并复制到剪贴板", path.display()))
+                        .title(t!("分享图已生成"))
                         .action(move |_, _, cx| {
                             let reveal = reveal.clone();
-                            Button::new("reveal-share").xsmall().label("在访达中显示").on_click(cx.listener(move |this, _, window, cx| {
+                            Button::new("reveal-share").xsmall().label(t!("在访达中显示")).on_click(cx.listener(move |this, _, window, cx| {
                                 cx.reveal_path(&reveal);
                                 this.dismiss(window, cx);
                             }))
@@ -522,7 +522,7 @@ impl MapPage {
                     cx,
                 );
             }
-            Err(e) => window.push_notification(Notification::warning(format!("生成分享图失败：{e}")), cx),
+            Err(e) => window.push_notification(Notification::warning(t!("生成分享图失败：{}", e)), cx),
         }
     }
 
@@ -547,7 +547,7 @@ impl MapPage {
                 h_flex()
                     .child(div().flex_1().font_semibold().child(match peak {
                         Some(i) => format!("▲ {}", self.peak_label(i)),
-                        None => "选中的笔记".into(),
+                        None => t!("选中的笔记").into(),
                     }))
                     .child(Button::new("map-side-close").ghost().xsmall().icon(Icon::new(Lucide::X)).on_click(cx.listener(|this, _, _, cx| {
                         this.selected_peak = None;
@@ -574,9 +574,9 @@ impl MapPage {
                 _ => String::new(),
             };
             panel = panel
-                .child(div().text_xs().text_color(theme.muted_foreground).child(format!("主题回顾 · {} 条笔记 · {span}", members.len())))
-                .child(Button::new("peak-insight").outline().small().icon(Icon::new(Lucide::Sparkles)).label("AI 洞察这座山峰").on_click(move |_, window, cx| {
-                    dispatch(Command::InsightMemos(ids.clone(), format!("山峰「{label}」")), window, cx)
+                .child(div().text_xs().text_color(theme.muted_foreground).child(t!("主题回顾 · {} 条笔记 · {}", members.len(), span)))
+                .child(Button::new("peak-insight").outline().small().icon(Icon::new(Lucide::Sparkles)).label(t!("AI 洞察这座山峰")).on_click(move |_, window, cx| {
+                    dispatch(Command::InsightMemos(ids.clone(), t!("山峰「{}」", label)), window, cx)
                 }))
                 .children(members.iter().map(|m| mini_card("peak-member", m, None, cx)));
         }
@@ -620,11 +620,11 @@ impl MapPage {
             .shadow_lg()
             .text_sm()
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .child(div().font_semibold().child("怎么看你的山峰"))
-            .child("· 等高线越密，围绕这个主题的笔记越多；孤峰说明这类笔记与其他内容关联不大。")
-            .child("· 山峰来自笔记之间的语义相似度，独立于你的标签，常常能看到从未命名过的主题。")
-            .child("· 点「记录足迹」进入时间的河流：每一帧是一个月，看看哪些山峰在长、哪些停了。")
-            .child(div().text_xs().text_color(theme.muted_foreground).child("拖动平移 · ⇧+拖动旋转与俯仰 · 双指捏合或 ⌘+滚轮缩放 · 点击山峰查看主题回顾"))
+            .child(div().font_semibold().child(t!("怎么看你的山峰")))
+            .child(t!("· 等高线越密，围绕这个主题的笔记越多；孤峰说明这类笔记与其他内容关联不大。"))
+            .child(t!("· 山峰来自笔记之间的语义相似度，独立于你的标签，常常能看到从未命名过的主题。"))
+            .child(t!("· 点「记录足迹」进入时间的河流：每一帧是一个月，看看哪些山峰在长、哪些停了。"))
+            .child(div().text_xs().text_color(theme.muted_foreground).child(t!("拖动平移 · ⇧+拖动旋转与俯仰 · 双指捏合或 ⌘+滚轮缩放 · 点击山峰查看主题回顾")))
             .into_any_element()
     }
 }
@@ -669,7 +669,12 @@ fn scene_svg(scene: &Scene, width: f32, height: f32, dark: bool, title: &str) ->
         ));
     }
     out.push_str(&format!(r#"<text x="48" y="72" font-size="30" fill="{fg}" font-weight="600">{}</text>"#, share::escape(title)));
-    out.push_str(&format!(r#"<text x="{}" y="{}" font-size="20" fill="{fg}" fill-opacity="0.6" text-anchor="end">MindFlow · 持续不断记录，意义自然浮现</text>"#, width - 48., height - 40.));
+    out.push_str(&format!(
+        r#"<text x="{}" y="{}" font-size="20" fill="{fg}" fill-opacity="0.6" text-anchor="end">{}</text>"#,
+        width - 48.,
+        height - 40.,
+        t!("Mori · 持续不断记录，意义自然浮现"),
+    ));
     out.push_str("</svg>");
     out
 }
@@ -828,7 +833,7 @@ impl Render for MapPage {
                         .items_center()
                         .justify_center()
                         .text_color(theme.muted_foreground)
-                        .child(if self.computing { "正在绘制你的认知地图…" } else { "笔记太少，还画不出地图" }),
+                        .child(if self.computing { t!("正在绘制你的认知地图…") } else { t!("笔记太少，还画不出地图") }),
                 )
             })
             .child(
@@ -839,12 +844,12 @@ impl Render for MapPage {
                     .gap_2()
                     .text_sm()
                     .text_color(theme.muted_foreground)
-                    .child(div().font_semibold().text_color(theme.foreground).child("认知地图"))
-                    .child(format!(
+                    .child(div().font_semibold().text_color(theme.foreground).child(t!("认知地图")))
+                    .child(t!(
                         "{} 座山峰 · {} 条笔记{}",
                         self.layout.as_ref().map(|l| l.peaks.len()).unwrap_or(0),
                         self.layout.as_ref().map(|l| l.points.len()).unwrap_or(0),
-                        if self.naming { " · AI 正在为山峰命名…" } else { "" }
+                        if self.naming { t!(" · AI 正在为山峰命名…") } else { "" }
                     )),
             )
             .child(
@@ -855,7 +860,7 @@ impl Render for MapPage {
                     .gap_3()
                     .items_center()
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .child(Button::new("map-close").icon(Icon::new(Lucide::X)).tooltip("关闭 Esc").on_click(|_, window, cx| dispatch(Command::CloseOverlay, window, cx)))
+                    .child(Button::new("map-close").icon(Icon::new(Lucide::X)).tooltip(t!("关闭 Esc")).on_click(|_, window, cx| dispatch(Command::CloseOverlay, window, cx)))
                     .child(
                         control(v_flex())
                             .items_center()
@@ -874,7 +879,7 @@ impl Render for MapPage {
                         Button::new("map-2d")
                             .small()
                             .label(if self.three_d { "2D" } else { "3D" })
-                            .tooltip(if self.three_d { "切换为俯视平面图" } else { "切换为立体地形" })
+                            .tooltip(if self.three_d { t!("切换为俯视平面图") } else { t!("切换为立体地形") })
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.three_d = !this.three_d;
                                 if this.three_d && this.tilt < 0.1 {
@@ -903,7 +908,7 @@ impl Render for MapPage {
                             .border_1()
                             .border_color(theme.border)
                             .cursor_pointer()
-                            .tooltip(move |window, cx| gpui_kit::component::tooltip::Tooltip::new(format!("朝向 {degrees:.0}° · 点击回正，⇧+拖动地图旋转")).build(window, cx))
+                            .tooltip(move |window, cx| gpui_kit::component::tooltip::Tooltip::new(t!("朝向 {}° · 点击回正，⇧+拖动地图旋转", format!("{degrees:.0}"))).build(window, cx))
                             .child(
                                 canvas(
                                     |_, _, _| {},
@@ -959,11 +964,11 @@ impl Render for MapPage {
                             .gap_1()
                             .px_1()
                             .py_1()
-                            .child(Button::new("map-palette").ghost().small().icon(Icon::new(Lucide::Palette)).tooltip(format!("配色：{palette_name}")).on_click(cx.listener(|this, _, _, cx| {
+                            .child(Button::new("map-palette").ghost().small().icon(Icon::new(Lucide::Palette)).tooltip(t!("配色：{}", palette_name)).on_click(cx.listener(|this, _, _, cx| {
                                 this.palette = (this.palette + 1) % 3;
                                 cx.notify();
                             })))
-                            .child(Button::new("map-help").ghost().small().icon(Icon::new(Lucide::CircleQuestionMark)).tooltip("如何看懂认知地图").on_click(cx.listener(|this, _, _, cx| {
+                            .child(Button::new("map-help").ghost().small().icon(Icon::new(Lucide::CircleQuestionMark)).tooltip(t!("如何看懂认知地图")).on_click(cx.listener(|this, _, _, cx| {
                                 this.show_help = !this.show_help;
                                 cx.notify();
                             })))
@@ -973,7 +978,7 @@ impl Render for MapPage {
                                     .small()
                                     .icon(Icon::new(Lucide::RefreshCw))
                                     .loading(self.computing)
-                                    .tooltip(if stale { "笔记有更新，重新绘制" } else { "重新绘制" })
+                                    .tooltip(if stale { t!("笔记有更新，重新绘制") } else { t!("重新绘制") })
                                     .on_click(cx.listener(|this, _, _, cx| this.compute(cx))),
                             ),
                     )
@@ -988,7 +993,7 @@ impl Render for MapPage {
                                     .small()
                                     .w(px(96.))
                                     .icon(Icon::new(if self.playing { Lucide::Pause } else { Lucide::Play }))
-                                    .label(if self.playing { "暂停" } else { "记录足迹" })
+                                    .label(if self.playing { t!("暂停") } else { t!("记录足迹") })
                                     .disabled(self.months.len() < 2)
                                     .on_click(cx.listener(|this, _, _, cx| this.toggle_play(cx))),
                             )
@@ -1024,7 +1029,7 @@ impl Render for MapPage {
                                     .ghost()
                                     .small()
                                     .icon(Icon::new(Lucide::ImageDown))
-                                    .label("分享图")
+                                    .label(t!("分享图"))
                                     .disabled(self.layout.is_none())
                                     .on_click(cx.listener(|this, _, window, cx| this.share(window, cx))),
                             ),
@@ -1039,7 +1044,7 @@ impl Render for MapPage {
                     .text_xs()
                     .text_color(theme.muted_foreground)
                     .child(Icon::new(Lucide::Info).xsmall())
-                    .child("山峰名称由 AI 生成，仅供参考"),
+                    .child(t!("山峰名称由 AI 生成，仅供参考")),
             )
     }
 }

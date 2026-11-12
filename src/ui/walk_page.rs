@@ -335,7 +335,7 @@ impl WalkPage {
                         .child(memo.snippet(if current { 400 } else { 120 })),
                 )
                 .when(backlinks > 0 && !current, |d| {
-                    d.child(div().text_size(fs(11.)).text_color(theme.muted_foreground).child(format!("{backlinks} 条批注")))
+                    d.child(div().text_size(fs(11.)).text_color(theme.muted_foreground).child(t!("{} 条批注", backlinks)))
                 })
                 .when(current, |d| {
                     d.child(
@@ -344,10 +344,10 @@ impl WalkPage {
                             .pt(fs(6.))
                             .border_t_1()
                             .border_color(theme.border.opacity(0.6))
-                            .child(action("share", Lucide::Share2, "分享", Command::ShareImage(id.clone())))
-                            .child(action("annotate", Lucide::MessageSquare, "批注", Command::Annotate(id.clone())))
-                            .child(action("edit", Lucide::SquarePen, "编辑", Command::Edit(id.clone())))
-                            .child(action("trash", Lucide::Trash, "删除", Command::Trash(id.clone()))),
+                            .child(action("share", Lucide::Share2, t!("分享"), Command::ShareImage(id.clone())))
+                            .child(action("annotate", Lucide::MessageSquare, t!("批注"), Command::Annotate(id.clone())))
+                            .child(action("edit", Lucide::SquarePen, t!("编辑"), Command::Edit(id.clone())))
+                            .child(action("trash", Lucide::Trash, t!("删除"), Command::Trash(id.clone()))),
                     )
                 })
                 .on_click(cx.listener(move |this, _, window, cx| {
@@ -389,11 +389,11 @@ impl WalkPage {
             let leap = summary
                 .biggest_leap
                 .filter(|_| summary.steps > 2)
-                .map(|step| format!("最远的一跳发生在第 {step} 步，两条笔记几乎毫不相干，却被你连在了一起。"));
+                .map(|step| t!("最远的一跳发生在第 {} 步，两条笔记几乎毫不相干，却被你连在了一起。", step));
             let again = view.clone();
             dialog
                 .w(px(440.))
-                .title("漫步明信片")
+                .title(t!("漫步明信片"))
                 .child(
                     v_flex()
                         .gap_4()
@@ -402,11 +402,11 @@ impl WalkPage {
                                 .py_3()
                                 .rounded_lg()
                                 .bg(theme.secondary)
-                                .child(stat(summary.steps.to_string(), "步"))
-                                .child(stat(summary.span_days.to_string(), "天跨度"))
-                                .child(stat(summary.chars.to_string(), "字")),
+                                .child(stat(summary.steps.to_string(), t!("步")))
+                                .child(stat(summary.span_days.to_string(), t!("天跨度")))
+                                .child(stat(summary.chars.to_string(), t!("字"))),
                         )
-                        .child(div().text_sm().text_color(theme.muted_foreground).child(format!(
+                        .child(div().text_sm().text_color(theme.muted_foreground).child(t!(
                             "从 {} 走到 {}。",
                             time::fmt_day(time::date_of(summary.earliest)),
                             time::fmt_day(time::date_of(summary.latest)),
@@ -429,11 +429,11 @@ impl WalkPage {
                             h_flex()
                                 .justify_end()
                                 .gap_2()
-                                .child(Button::new("postcard-again").label("再走一次").on_click(move |_, window, cx| {
+                                .child(Button::new("postcard-again").label(t!("再走一次")).on_click(move |_, window, cx| {
                                     let _ = again.update(cx, |this, cx| this.start_random(cx));
                                     window.close_dialog(cx);
                                 }))
-                                .child(Button::new("postcard-close").primary().label("结束漫步").on_click(
+                                .child(Button::new("postcard-close").primary().label(t!("结束漫步")).on_click(
                                     |_, window, cx| {
                                         window.close_dialog(cx);
                                         dispatch(Command::CloseOverlay, window, cx);
@@ -595,7 +595,7 @@ impl Render for WalkPage {
                         .items_center()
                         .justify_center()
                         .text_color(theme.muted_foreground)
-                        .child("还没有笔记可以漫步"),
+                        .child(t!("还没有笔记可以漫步")),
                 )
             })
             .child(
@@ -605,21 +605,21 @@ impl Render for WalkPage {
                     .right_4()
                     .gap_2()
                     .child(
-                        tool_button("walk-center", Lucide::LocateFixed, "回到当前笔记")
+                        tool_button("walk-center", Lucide::LocateFixed, t!("回到当前笔记"))
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.center_pending = true;
                                 cx.notify();
                             })),
                     )
                     .child(
-                        tool_button("walk-random", Lucide::Dices, "换个起点")
+                        tool_button("walk-random", Lucide::Dices, t!("换个起点"))
                             .on_click(cx.listener(|this, _, _, cx| this.start_random(cx))),
                     )
                     .child(
                         tool_button(
                             "walk-collapse",
                             if self.collapsed { Lucide::Expand } else { Lucide::Shrink },
-                            if self.collapsed { "展开全部分支" } else { "只看来时的路" },
+                            if self.collapsed { t!("展开全部分支") } else { t!("只看来时的路") },
                         )
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.collapsed = !this.collapsed;
@@ -628,12 +628,12 @@ impl Render for WalkPage {
                         })),
                     )
                     .child(
-                        tool_button("walk-postcard", Lucide::Flag, "结束并生成漫步明信片")
+                        tool_button("walk-postcard", Lucide::Flag, t!("结束并生成漫步明信片"))
                             .disabled(self.path.len() < 2)
                             .on_click(cx.listener(|this, _, window, cx| this.show_postcard(window, cx))),
                     )
                     .child(
-                        tool_button("walk-close", Lucide::X, "关闭 Esc")
+                        tool_button("walk-close", Lucide::X, t!("关闭 Esc"))
                             .on_click(|_, window, cx| dispatch(Command::CloseOverlay, window, cx)),
                     ),
             )
@@ -645,8 +645,8 @@ impl Render for WalkPage {
                     .gap_2()
                     .text_sm()
                     .text_color(theme.muted_foreground)
-                    .child(div().font_semibold().text_color(theme.foreground).child("随机漫步"))
-                    .child(format!("第 {} 步 · 点击右侧卡片继续前行，点击左侧卡片回到来时的路", self.path.len().max(1))),
+                    .child(div().font_semibold().text_color(theme.foreground).child(t!("随机漫步")))
+                    .child(t!("第 {} 步 · 点击右侧卡片继续前行，点击左侧卡片回到来时的路", self.path.len().max(1))),
             )
             .child(
                 h_flex()
@@ -678,7 +678,7 @@ impl Render for WalkPage {
                     .text_xs()
                     .text_color(theme.muted_foreground)
                     .child(Icon::new(Lucide::Info).xsmall())
-                    .child("关联由语义模型计算，仅供参考"),
+                    .child(t!("关联由语义模型计算，仅供参考")),
             )
     }
 }

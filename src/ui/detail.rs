@@ -153,16 +153,16 @@ impl MemoDetail {
         v_flex()
             .gap_2()
             .when(!refs.is_empty(), |this| {
-                this.child(section_title("引用了", refs.len(), cx))
+                this.child(section_title(t!("引用了"), refs.len(), cx))
                     .children(refs.iter().map(|m| mini_card("detail-ref", m, None, cx)))
             })
-            .child(section_title("被批注", backlinks.len(), cx))
+            .child(section_title(t!("被批注"), backlinks.len(), cx))
             .when(backlinks.is_empty(), |this| {
                 this.child(
                     div()
                         .text_xs()
                         .text_color(theme.muted_foreground)
-                        .child("还没有笔记批注它。点卡片菜单的「批注」写下新想法，就能建立连接。"),
+                        .child(t!("还没有笔记批注它。点卡片菜单的「批注」写下新想法，就能建立连接。")),
                 )
             })
             .children(backlinks.iter().map(|m| mini_card("detail-back", m, None, cx)))
@@ -170,12 +170,12 @@ impl MemoDetail {
                 h_flex()
                     .gap_2()
                     .pt_2()
-                    .child(section_title("相关笔记", related.len(), cx))
+                    .child(section_title(t!("相关笔记"), related.len(), cx))
                     .child(div().flex_1())
                     .child(
                         Switch::new("hide-same-tag")
                             .xsmall()
-                            .label("隐藏同标签")
+                            .label(t!("隐藏同标签"))
                             .checked(self.hide_same_tag)
                             .on_change(cx.listener(|this, checked: &bool, _, cx| {
                                 this.hide_same_tag = *checked;
@@ -188,13 +188,13 @@ impl MemoDetail {
                     div()
                         .text_xs()
                         .text_color(theme.muted_foreground)
-                        .child(if lib.is_indexing() { "正在建立语义索引…" } else { "暂时没有找到相关笔记" }),
+                        .child(if lib.is_indexing() { t!("正在建立语义索引…") } else { t!("暂时没有找到相关笔记") }),
                 )
             })
             .children(related.iter().filter_map(|(id, score)| {
                 store
                     .get(id)
-                    .map(|m| mini_card("detail-related", m, Some(format!("相似度 {:.0}%", score * 100.0)), cx))
+                    .map(|m| mini_card("detail-related", m, Some(t!("相似度 {}%", format!("{:.0}", score * 100.0))), cx))
             }))
             .when(!related.is_empty(), |this| {
                 this.child(
@@ -202,9 +202,9 @@ impl MemoDetail {
                         .outline()
                         .small()
                         .icon(Icon::new(Lucide::Sparkles))
-                        .label("AI 洞察这组笔记")
+                        .label(t!("AI 洞察这组笔记"))
                         .on_click(move |_, window, cx| {
-                            dispatch(Command::InsightMemos(insight_ids.clone(), "相关笔记".into()), window, cx)
+                            dispatch(Command::InsightMemos(insight_ids.clone(), t!("相关笔记").into()), window, cx)
                         }),
                 )
             })
@@ -220,10 +220,10 @@ impl MemoDetail {
                 div()
                     .text_xs()
                     .text_color(theme.muted_foreground)
-                    .child("每次编辑都会自动保存旧版本，保留最近 30 天，仅包含文字内容。"),
+                    .child(t!("每次编辑都会自动保存旧版本，保留最近 30 天，仅包含文字内容。")),
             )
             .when(self.versions.is_empty(), |this| {
-                this.child(div().text_sm().text_color(theme.muted_foreground).py_4().child("暂无历史版本"))
+                this.child(div().text_sm().text_color(theme.muted_foreground).py_4().child(t!("暂无历史版本")))
             })
             .children(self.versions.iter().map(|version| {
                 let vid = version.id;
@@ -239,22 +239,22 @@ impl MemoDetail {
                             .text_color(theme.muted_foreground)
                             .child(time::relative_day(version.saved_at))
                             .child(div().w_2())
-                            .child(format!("{} 字", parse::plain_char_count(&version.content)))
+                            .child(t!("{} 字", parse::plain_char_count(&version.content)))
                             .child(div().flex_1())
                             .child(
                                 Button::new(SharedString::from(format!("restore-{vid}")))
                                     .xsmall()
                                     .outline()
-                                    .label("恢复")
+                                    .label(t!("恢复"))
                                     .on_click(move |_, window, cx| {
                                         let memo_id = memo_id.clone();
-                                        confirm(window, cx, "恢复到这个版本？", "当前内容会保存为一个新的历史版本。", "恢复", false, move |window, cx| {
+                                        confirm(window, cx, t!("恢复到这个版本？"), t!("当前内容会保存为一个新的历史版本。"), t!("恢复"), false, move |window, cx| {
                                             let id = memo_id.clone();
                                             let result = Library::global(cx)
                                                 .update(cx, |lib, cx| lib.mutate(cx, |s| s.restore_version(&id, vid)));
                                             if let Err(err) = result {
                                                 use gpui_kit::component::WindowExt as _;
-                                                window.push_notification(format!("恢复失败：{err}"), cx);
+                                                window.push_notification(t!("恢复失败：{}", err), cx);
                                             }
                                         });
                                     }),
@@ -279,21 +279,21 @@ impl Render for MemoDetail {
             .border_b_1()
             .border_color(theme.border)
             .child(Icon::new(Lucide::PanelRight).small().text_color(theme.muted_foreground))
-            .child(div().font_semibold().child("笔记详情"))
+            .child(div().font_semibold().child(t!("笔记详情")))
             .child(div().flex_1())
             .child(
                 Button::new("detail-close")
                     .ghost()
                     .xsmall()
                     .icon(Icon::new(Lucide::X))
-                    .tooltip("关闭 Esc")
+                    .tooltip(t!("关闭 Esc"))
                     .on_click(cx.listener(|this, _, _, cx| this.close(cx))),
             );
         let Some(memo) = memo else {
             return v_flex()
                 .size_full()
                 .child(header)
-                .child(div().p_4().text_color(theme.muted_foreground).child("这条笔记已被彻底删除"))
+                .child(div().p_4().text_color(theme.muted_foreground).child(t!("这条笔记已被彻底删除")))
                 .into_any_element();
         };
         let card = match &self.editing {
@@ -335,13 +335,13 @@ impl Render for MemoDetail {
                                     h_flex()
                                         .text_xs()
                                         .text_color(muted)
-                                        .child("写批注")
+                                        .child(t!("写批注"))
                                         .child(div().flex_1())
                                         .child(
                                             Button::new("cancel-annotate")
                                                 .ghost()
                                                 .xsmall()
-                                                .label("取消")
+                                                .label(t!("取消"))
                                                 .on_click(cx.listener(|this, _, _, cx| {
                                                     this.annotating = None;
                                                     cx.notify();
@@ -361,8 +361,8 @@ impl Render for MemoDetail {
                                 this.load_versions(cx);
                                 cx.notify();
                             }))
-                            .child("关联")
-                            .child(format!("历史版本 {}", self.versions.len())),
+                            .child(t!("关联"))
+                            .child(t!("历史版本 {}", self.versions.len())),
                     )
                     .child(body),
             )

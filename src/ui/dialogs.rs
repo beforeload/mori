@@ -56,7 +56,7 @@ pub fn prompt_text(
             })
             .footer(
                 DialogFooter::new()
-                    .child(DialogClose::new().child(Button::new("cancel").outline().label("取消")))
+                    .child(DialogClose::new().child(Button::new("cancel").outline().label(t!("取消"))))
                     .child(DialogAction::new().child(Button::new("ok").primary().label(ok_label.clone()))),
             )
     });
@@ -131,7 +131,7 @@ pub fn prompt_fields(
             })
             .footer(
                 DialogFooter::new()
-                    .child(DialogClose::new().child(Button::new("cancel").outline().label("取消")))
+                    .child(DialogClose::new().child(Button::new("cancel").outline().label(t!("取消"))))
                     .child(DialogAction::new().child(Button::new("ok").primary().label(ok_label.clone()))),
             )
     });
@@ -176,7 +176,7 @@ pub fn confirm(
             .description(description.clone())
             .confirm()
             .ok_text(ok_label.clone())
-            .cancel_text("取消")
+            .cancel_text(t!("取消"))
             .ok_variant(if danger { ButtonVariant::Danger } else { ButtonVariant::Primary })
             .on_ok(move |_, window, cx| {
                 on_ok(window, cx);
