@@ -54,7 +54,7 @@ impl Route {
             Route::Insight => t!("AI 洞察"),
             Route::Walk => t!("随机漫步"),
             Route::Map => t!("认知地图"),
-            Route::Graph => t!("笔记关系图"),
+            Route::Graph => t!("关系图谱"),
             Route::Stats => t!("记录统计"),
             Route::Memory => t!("AI 记忆档案"),
             Route::Trash => t!("回收站"),

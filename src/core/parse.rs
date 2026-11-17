@@ -1,5 +1,8 @@
-//! Parsing of memo content: tags, memo references, links and the lightweight
-//! inline markup (`**bold**`, `==highlight==`, `__underline__`, `~~strike~~`).
+//! Parsing of memo content: tags, memo references, links, flomo inline markup
+//! (`**bold**`, `==highlight==`, `__underline__`, `~~strike~~`, `` `code` ``),
+//! and a Markdown-compatible block layer (headings, fenced code, tables, rules,
+//! task lists). Headings need a space after `#` (`# Title`); tags do not (`#tag`),
+//! so the two do not collide.
 
 use std::ops::Range;
 use std::sync::LazyLock;
@@ -92,8 +95,19 @@ pub fn plain_text(content: &str) -> String {
     let without_refs = REF_RE.replace_all(content, "");
     let mut out = String::with_capacity(without_refs.len());
     for line in without_refs.lines() {
-        let (_, rest) = split_line_kind(line);
-        out.push_str(&strip_markers(rest));
+        let trimmed = line.trim();
+        if trimmed.starts_with("```") || is_table_separator(trimmed) {
+            continue;
+        }
+        let (kind, rest) = split_line_kind(line);
+        if kind == LineKind::Rule {
+            continue;
+        }
+        if trimmed.starts_with('|') {
+            out.push_str(&strip_markers(&rest.replace('|', " ")));
+        } else {
+            out.push_str(&strip_markers(rest));
+        }
         out.push('\n');
     }
     out.trim().to_string()
@@ -120,7 +134,7 @@ pub fn truncate_chars(text: &str, max_chars: usize) -> String {
 }
 
 fn strip_markers(text: &str) -> String {
-    text.replace("**", "").replace("==", "").replace("~~", "").replace("__", "")
+    text.replace("**", "").replace("==", "").replace("~~", "").replace("__", "").replace('`', "")
 }
 
 /// Rewrites every tag equal to `old` or nested below it so that it starts with `new`.
@@ -166,12 +180,28 @@ pub enum LineKind {
     Ordered(String),
     Quote,
     Blank,
+    Heading(u8),
+    /// Fenced code block; `text` on the [`RichLine`] is the raw code.
+    CodeBlock { lang: Option<String> },
+    /// One table row. `is_header` marks the first row after the separator.
+    TableRow { is_header: bool, cells: Vec<String> },
+    Rule,
+    Task { checked: bool },
 }
 
 pub fn split_line_kind(line: &str) -> (LineKind, &str) {
     let trimmed = line.trim_start();
     if trimmed.is_empty() {
         return (LineKind::Blank, "");
+    }
+    if let Some((level, rest)) = heading_line(trimmed) {
+        return (LineKind::Heading(level), rest);
+    }
+    if is_rule_line(trimmed) {
+        return (LineKind::Rule, "");
+    }
+    if let Some((checked, rest)) = task_line(trimmed) {
+        return (LineKind::Task { checked }, rest);
     }
     for marker in ["- ", "* ", "• "] {
         if let Some(rest) = trimmed.strip_prefix(marker) {
@@ -191,12 +221,76 @@ pub fn split_line_kind(line: &str) -> (LineKind, &str) {
     (LineKind::Paragraph, line)
 }
 
+fn heading_line(trimmed: &str) -> Option<(u8, &str)> {
+    let bytes = trimmed.as_bytes();
+    let mut n = 0usize;
+    while n < bytes.len() && bytes[n] == b'#' && n < 6 {
+        n += 1;
+    }
+    if n == 0 || n >= bytes.len() || bytes[n] != b' ' {
+        return None;
+    }
+    Some((n as u8, trimmed[n + 1..].trim_start()))
+}
+
+fn is_rule_line(trimmed: &str) -> bool {
+    let t = trimmed.trim();
+    t.len() >= 3
+        && (t.chars().all(|c| c == '-') || t.chars().all(|c| c == '*') || t.chars().all(|c| c == '_'))
+}
+
+fn task_line(trimmed: &str) -> Option<(bool, &str)> {
+    for (prefix, checked) in [("- [ ] ", false), ("- [x] ", true), ("- [X] ", true), ("* [ ] ", false), ("* [x] ", true), ("* [X] ", true)] {
+        if let Some(rest) = trimmed.strip_prefix(prefix) {
+            return Some((checked, rest));
+        }
+    }
+    None
+}
+
+fn fence_open(line: &str) -> Option<Option<String>> {
+    let trimmed = line.trim_end();
+    let rest = trimmed.strip_prefix("```")?;
+    let lang = rest.trim();
+    if lang.is_empty() {
+        Some(None)
+    } else {
+        Some(Some(lang.to_string()))
+    }
+}
+
+fn split_table_row(line: &str) -> Option<Vec<String>> {
+    let t = line.trim();
+    if !t.contains('|') {
+        return None;
+    }
+    let body = t.trim_matches('|');
+    if body.chars().all(|c| c == '-' || c == ':' || c == '|' || c.is_whitespace()) {
+        return None;
+    }
+    let cells: Vec<String> = body.split('|').map(|c| c.trim().to_string()).collect();
+    if cells.is_empty() || cells.iter().all(|c| c.is_empty()) {
+        return None;
+    }
+    Some(cells)
+}
+
+fn is_table_separator(line: &str) -> bool {
+    let t = line.trim().trim_matches('|');
+    !t.is_empty()
+        && t.split('|').all(|cell| {
+            let c = cell.trim();
+            !c.is_empty() && c.chars().all(|ch| ch == '-' || ch == ':')
+        })
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct InlineStyle {
     pub bold: bool,
     pub highlight: bool,
     pub underline: bool,
     pub strike: bool,
+    pub code: bool,
     pub tag: bool,
     pub link: bool,
     pub memo_ref: bool,
@@ -244,19 +338,74 @@ pub fn parse_rich(
     keywords: &[String],
     ref_label: &dyn Fn(&str) -> String,
 ) -> Vec<RichLine> {
+    let raw: Vec<&str> = content.split('\n').collect();
     let mut lines = Vec::new();
-    for raw_line in content.split('\n') {
+    let mut i = 0;
+    while i < raw.len() {
+        let raw_line = raw[i];
+        if let Some(lang) = fence_open(raw_line) {
+            i += 1;
+            let mut code = String::new();
+            while i < raw.len() && fence_open(raw[i]).is_none() {
+                if !code.is_empty() {
+                    code.push('\n');
+                }
+                code.push_str(raw[i]);
+                i += 1;
+            }
+            if i < raw.len() {
+                i += 1; // closing fence
+            }
+            lines.push(RichLine {
+                kind: LineKind::CodeBlock { lang },
+                text: code,
+                styles: Vec::new(),
+                targets: Vec::new(),
+            });
+            continue;
+        }
+        if let Some(cells) = split_table_row(raw_line)
+            && i + 1 < raw.len()
+            && is_table_separator(raw[i + 1])
+        {
+            lines.push(RichLine {
+                kind: LineKind::TableRow {
+                    is_header: true,
+                    cells: cells.clone(),
+                },
+                text: cells.join(" · "),
+                styles: Vec::new(),
+                targets: Vec::new(),
+            });
+            i += 2; // header + separator
+            while i < raw.len() {
+                let Some(row) = split_table_row(raw[i]) else { break };
+                lines.push(RichLine {
+                    kind: LineKind::TableRow {
+                        is_header: false,
+                        cells: row.clone(),
+                    },
+                    text: row.join(" · "),
+                    styles: Vec::new(),
+                    targets: Vec::new(),
+                });
+                i += 1;
+            }
+            continue;
+        }
         let (kind, rest) = split_line_kind(raw_line);
-        if kind == LineKind::Blank {
+        if kind == LineKind::Blank || kind == LineKind::Rule {
             lines.push(RichLine {
                 kind,
                 text: String::new(),
                 styles: Vec::new(),
                 targets: Vec::new(),
             });
+            i += 1;
             continue;
         }
         lines.push(parse_inline(kind, rest, keywords, ref_label));
+        i += 1;
     }
     while lines.last().is_some_and(|l| l.kind == LineKind::Blank) {
         lines.pop();
@@ -381,6 +530,7 @@ fn marker_flag<'a>(style: &'a mut InlineStyle, marker: &str) -> &'a mut bool {
 
 /// Appends `line[segment]` to `text`, toggling inline styles on paired markers.
 /// A marker only opens a style when a closing marker follows on the same line.
+/// Inline `` `code` `` is also recognized.
 fn push_plain(
     line: &str,
     segment: Range<usize>,
@@ -390,6 +540,20 @@ fn push_plain(
 ) {
     let mut i = segment.start;
     while i < segment.end {
+        if !style.code
+            && line.as_bytes().get(i) == Some(&b'`')
+            && let Some(rel) = line[i + 1..segment.end].find('`')
+            && rel > 0
+        {
+            let code = &line[i + 1..i + 1 + rel];
+            let mut code_style = *style;
+            code_style.code = true;
+            let start = text.len();
+            text.push_str(code);
+            pieces.push((start..text.len(), code_style));
+            i += 2 + rel;
+            continue;
+        }
         if let Some(marker) = MARKERS.iter().find(|m| line[i..segment.end].starts_with(**m)) {
             let flag = marker_flag(style, marker);
             if *flag || line[i + 2..].contains(*marker) {
@@ -465,5 +629,23 @@ mod tests {
             Some((6, "读".into()))
         );
         assert_eq!(token_before_cursor("hello# x", 8, '#'), None);
+        // Markdown heading `# Title` has a space, so it is not a tag token.
+        assert_eq!(token_before_cursor("# ", 2, '#'), None);
+    }
+
+    #[test]
+    fn markdown_blocks_and_inline_code() {
+        let md = "# 标题\n\n```rust\nfn main() {}\n```\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n用 `code` 标记\n\n- [x] 完成\n\n---\n";
+        let lines = parse_rich(md, &[], &|_| String::new());
+        assert!(lines.iter().any(|l| matches!(l.kind, LineKind::Heading(1))));
+        assert!(lines.iter().any(|l| matches!(l.kind, LineKind::CodeBlock { .. })));
+        assert!(lines.iter().any(|l| matches!(l.kind, LineKind::TableRow { is_header: true, .. })));
+        assert!(lines.iter().any(|l| matches!(l.kind, LineKind::Task { checked: true })));
+        assert!(lines.iter().any(|l| l.kind == LineKind::Rule));
+        let inline = lines.iter().find(|l| l.text.contains("code")).unwrap();
+        assert!(inline.styles.iter().any(|(_, s)| s.code));
+        // Heading with space is not a tag; tag without space still works.
+        assert!(extract_tags("# 标题").is_empty());
+        assert_eq!(extract_tags("见 #产品").first().map(String::as_str), Some("产品"));
     }
 }

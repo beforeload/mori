@@ -188,6 +188,11 @@ pub fn memo_share_svg(memo: &Memo, nickname: &str, dark: bool, ref_label: &dyn F
             LineKind::Bullet => ("•".to_string(), 34.0),
             LineKind::Ordered(n) => (format!("{n}."), 40.0),
             LineKind::Quote => ("│".to_string(), 30.0),
+            LineKind::Task { checked } => ((if *checked { "☑" } else { "☐" }).to_string(), 34.0),
+            LineKind::Heading(_) => (String::new(), 0.0),
+            LineKind::CodeBlock { .. } => ("{}".to_string(), 30.0),
+            LineKind::TableRow { .. } => ("▦".to_string(), 30.0),
+            LineKind::Rule => ("—".to_string(), 0.0),
             _ => (String::new(), 0.0),
         };
         let styles: Vec<Run> = line

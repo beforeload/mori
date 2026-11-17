@@ -764,7 +764,7 @@ impl Workspace {
                     .dropdown_menu_with_anchor(Anchor::TopRight, |menu, _, _| {
                         menu.item(menu_item(t!("问问笔记（AI Agent）"), Lucide::BotMessageSquare, Command::ToggleAgent))
                             .item(menu_item(t!("认知地图"), Lucide::Mountain, Command::Navigate(Route::Map)))
-                            .item(menu_item(t!("笔记关系图"), Lucide::Waypoints, Command::Navigate(Route::Graph)))
+                            .item(menu_item(t!("关系图谱"), Lucide::Waypoints, Command::Navigate(Route::Graph)))
                             .item(menu_item(t!("记录统计"), Lucide::ChartNoAxesColumn, Command::Navigate(Route::Stats)))
                             .item(menu_item(t!("AI 记忆档案"), Lucide::Brain, Command::Navigate(Route::Memory)))
                             .separator()

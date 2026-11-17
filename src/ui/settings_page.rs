@@ -972,7 +972,7 @@ impl SettingsPage {
                 vec![
                     entry("lab-map", t!("认知地图"), t!("笔记涌现出的思考山峰"), Route::Map),
                     entry("lab-walk", t!("随机漫步"), t!("沿着语义小径游走"), Route::Walk),
-                    entry("lab-graph", t!("笔记关系图"), t!("批注与语义连接"), Route::Graph),
+                    entry("lab-graph", t!("关系图谱"), t!("笔记、标签与引用的关系网"), Route::Graph),
                     entry("lab-stats", t!("记录统计"), t!("热力图、分布与排行"), Route::Stats),
                     entry("lab-memory", t!("AI 记忆档案"), t!("让 AI 真正了解你"), Route::Memory),
                 ],
