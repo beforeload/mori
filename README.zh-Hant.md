@@ -12,6 +12,10 @@
 
 ![全部筆記](docs/screenshots/main.png)
 
+| 筆記詳情（匯入的 Obsidian 筆記） | 關係圖譜 |
+| --- | --- |
+| ![筆記詳情](docs/screenshots/detail.png) | ![關係圖譜](docs/screenshots/graph.png) |
+
 | 隨機漫步 | 認知地圖 |
 | --- | --- |
 | ![隨機漫步](docs/screenshots/walk.png) | ![認知地圖](docs/screenshots/map.png) |
@@ -19,7 +23,9 @@
 ## 功能
 
 **記錄**
-- 輸入框支援 `#標籤`（可多級，如 `#讀書/心理學`）、圖片（可直接貼上）、列表，以及 `**加粗**`、`==高亮==`、`__下劃線__`、`~~刪除線~~`
+- 輸入框支援 `#標籤`（可多級，如 `#讀書/心理學`）、列表，以及 `**加粗**`、`==高亮==`、`__下劃線__`、`~~刪除線~~`
+- 圖片寫在正文裡（`![](images/…)`），閱讀時顯示在原本的位置；編輯時圖片區塊帶縮圖，正文下方有預覽
+- Markdown：標題、程式碼區塊、表格、任務清單；YAML 屬性顯示在筆記頂部；`[[雙鏈]]` 按標題或別名連結筆記
 - `@` 引用其他筆記，「批註」給舊筆記寫新想法，兩者都會建立雙向連結
 - 歷史版本、修改時間、置頂、垃圾桶（可撤銷）
 - 在某個標籤下記錄時自動帶上該標籤
@@ -43,8 +49,9 @@
 
 **匯入匯出與外部寫入**
 - 匯入：flomo 匯出的 HTML、Mori JSON、Markdown / TXT、CSV（Day One 及通用格式）、微信讀書筆記文字
+- 匯入 Obsidian 倉庫（設定 → 匯入匯出 →「Obsidian 倉庫」）：每個 Markdown 檔案一條筆記，保留 YAML 屬性，標籤、雙鏈和嵌入的圖片一起匯入
 - 匯出：JSON（完整，可再匯入）、Markdown、HTML，圖片一併複製
-- 本地 HTTP API 和 MCP 伺服器，讓快捷指令、腳本和 AI 工具讀寫筆記（見下文）
+- 本地 HTTP API、MCP 伺服器和 `mori` 命令列，讓捷徑、腳本和 AI 工具讀寫、分析筆記（見下文）
 
 ## 安裝
 
@@ -107,17 +114,30 @@ curl -H "Authorization: Bearer <令牌>" http://127.0.0.1:17321/api/v1/tags
 }
 ```
 
-提供的工具：`search_memos`、`get_memo`、`create_memo`、`update_memo`、`delete_memo`、`list_tags`、`get_related_memos`、`get_daily_review`、`get_memory_profile`、`get_stats`。
+提供的工具：`search_memos`（可翻頁）、`get_memo`、`create_memo`、`update_memo`、`append_memo`、`delete_memo`、`list_tags`、`get_related_memos`、`get_daily_review`、`get_memory_profile`、`get_stats`。
 
 透過 API 和 MCP 寫入的筆記會出現在側邊欄的「API 輸入」中，點側邊欄的重新整理按鈕可立即讀取。
 
 ## 命令列
 
+同一個可執行檔也是命令列工具，給你自己、腳本和 Claude Code、Codex、Cursor 等 AI 工具用。它讀寫的就是應用裡的筆記庫，應用開著時幾秒內就能看到變化。加 `--json` 輸出結構化結果。
+
 ```bash
-mori                       # 啟動應用
-mori --mcp                 # 執行 MCP 伺服器
-mori --import a.html b.csv # 匯入檔案後退出（自動跳過重複筆記）
+mori                                  # 啟動應用
+mori list --limit 20 --tag 讀書        # 最新筆記
+mori search 產品 想法 --json           # 關鍵詞搜尋（--semantic 按語義排序）
+mori get <id>                         # 一條筆記及其反向連結
+echo "一個想法 #收集箱" | mori new      # 從標準輸入新建，或 mori new "內容" --tag 收集箱
+mori append <id> "再補一句"            # 另有 edit、rm（移入垃圾桶）
+mori tags / stats / related <id> / review
+mori export --format jsonl --since 2026-01-01 > notes.jsonl   # 整批匯出，方便分析
+mori import a.html b.csv              # 匯入檔案（自動跳過重複筆記）
+mori import-obsidian ~/vault          # 匯入 Obsidian 倉庫
+mori mcp                              # 以 stdio 執行 MCP 伺服器（同 --mcp）
+mori guide                            # 給 AI 工具看的使用說明
 ```
+
+`mori install-cli`（或「設定 → MCP / API → 安裝 mori 命令」）會把應用裡的 `/Applications/Mori.app/Contents/MacOS/mori` 連結到 `~/.local/bin`。[docs/AI.md](docs/AI.md) 是給 AI 工具看的說明：筆記格式、JSON 結構和常見用法。
 
 從原始碼執行時，可執行檔名是 `mori`（`cargo run --release` 會生成 `target/release/mori`）。環境變數 `MORI_DATA_DIR` 可以指定資料目錄，方便用一份測試資料試用而不影響真實筆記。舊的 `MINDFLOW_DATA_DIR` 仍然有效。
 
@@ -132,6 +152,7 @@ mori --import a.html b.csv # 匯入檔案後退出（自動跳過重複筆記）
 | 操作 | 快捷鍵 |
 | --- | --- |
 | 新建筆記 | `⌘N` 或 `⌘/` |
+| 傳送 / 儲存正在編輯的筆記 | `⌘↩` |
 | 搜尋 | `⌘K` |
 | 顯示 / 隱藏側邊欄 | `⌘\` |
 | 回到全部筆記 | `⌘⇧F` |
@@ -144,11 +165,13 @@ mori --import a.html b.csv # 匯入檔案後退出（自動跳過重複筆記）
 
 ```
 src/
-  main.rs         入口：視窗、選單，以及 --mcp / --import 命令列
+  main.rs         入口：視窗、選單；識別到命令時交給命令列
+  cli.rs          mori 命令列（list、search、new、export 等）
   api_server.rs   本地 HTTP API
-  mcp.rs          MCP 伺服器
+  mcp.rs          MCP 伺服器，命令列也複用它的工具
   core/           與介面無關的邏輯：儲存、解析、搜尋、語義相似度、回顧、AI 客戶端、匯入匯出、分享圖
   ui/             GPUI 介面：側邊欄、筆記流、輸入框、詳情、各功能頁面與設定
+docs/AI.md        給 AI 工具的使用說明（mori guide 也會印出）
 scripts/          打包腳本與圖示生成
 ```
 

@@ -138,7 +138,15 @@ pub fn has_link(content: &str) -> bool {
 /// Content with markup removed, used for counting, snippets and vectors.
 pub fn plain_text(content: &str) -> String {
     let source = super::images::strip(super::frontmatter::body(content));
-    let without_refs = REF_RE.replace_all(&source, "");
+    let mut linked = String::with_capacity(source.len());
+    let mut last = 0;
+    for hit in super::frontmatter::wikilink_hits(&source) {
+        linked.push_str(&source[last..hit.range.start]);
+        linked.push_str(&hit.label);
+        last = hit.range.end;
+    }
+    linked.push_str(&source[last..]);
+    let without_refs = REF_RE.replace_all(&linked, "");
     let mut out = String::with_capacity(without_refs.len());
     for line in without_refs.lines() {
         let trimmed = line.trim();
@@ -770,6 +778,7 @@ mod tests {
         assert!(renamed.contains("阅读/方法"));
         assert!(!extract_tags(&renamed).iter().any(|t| t.starts_with("读书")));
         assert!(plain_text(note).contains("正文"));
+        assert!(plain_text(note).contains("见 项目") && !plain_text(note).contains("[["));
         assert!(!plain_text(note).contains("tags:"));
         let lines = parse_rich(note, &[], &|_| String::new());
         assert!(lines.iter().any(|l| l.kind == LineKind::Property && l.text.contains("#读书/方法")));

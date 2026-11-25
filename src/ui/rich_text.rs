@@ -13,7 +13,7 @@ use gpui_kit::component::{ActiveTheme as _, Icon, Sizable as _, StyledExt as _, 
 use gpui_kit::{
     AnyElement, App, FontWeight, HighlightStyle, InteractiveElement as _, InteractiveText, IntoElement,
     ObjectFit, ParentElement as _, SharedString, StatefulInteractiveElement as _, StrikethroughStyle,
-    Styled as _, StyledImage as _, StyledText, UnderlineStyle, div, img, px,
+    Styled as _, StyledImage as _, StyledText, UnderlineStyle, div, img, px, relative,
 };
 use gpui_kit::prelude::FluentBuilder as _;
 
@@ -235,26 +235,32 @@ fn render_image(scope: &SharedString, index: usize, src: &str, alt: &str, cx: &A
     };
     if let Some(path) = local.filter(|p| p.is_file()) {
         let (w, h) = image_size(&path).unwrap_or((IMAGE_MAX_WIDTH, IMAGE_MAX_HEIGHT));
-        // Fixed sizes: a percentage width with an aspect ratio inflates the card's measured height.
         let scale = (IMAGE_MAX_WIDTH / w).min(IMAGE_MAX_HEIGHT / h).min(1.);
         let fallback_text: SharedString = if alt.is_empty() { t!("图片无法显示").into() } else { alt.to_string().into() };
         let open = path.clone();
+        // Top padding in percent resolves against the box's width, so the box keeps the
+        // image's proportions in narrow panels too. (`aspect_ratio` on a percentage-width
+        // box inflates the measured height of the card around it.)
         return div()
             .id(id)
-            .w(px(w * scale))
-            .h(px(h * scale))
-            .max_w_full()
+            .w_full()
+            .max_w(px(w * scale))
             .my_1()
             .rounded_md()
             .overflow_hidden()
             .cursor_pointer()
             .child(
-                img(path)
-                    .size_full()
-                    .object_fit(ObjectFit::Contain)
-                    .with_fallback(move || {
-                        div().size_full().flex().items_center().justify_center().text_xs().text_color(muted).child(fallback_text.clone()).into_any_element()
-                    }),
+                div().relative().w_full().pt(relative(h / w)).child(
+                    img(path)
+                        .absolute()
+                        .top_0()
+                        .left_0()
+                        .size_full()
+                        .object_fit(ObjectFit::Contain)
+                        .with_fallback(move || {
+                            div().size_full().flex().items_center().justify_center().text_xs().text_color(muted).child(fallback_text.clone()).into_any_element()
+                        }),
+                ),
             )
             .on_click(move |_, _, cx| cx.open_with_system(&open))
             .into_any_element();

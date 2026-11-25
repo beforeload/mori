@@ -12,6 +12,10 @@ The interface language can be switched in Settings → General: 简体中文, En
 
 ![All notes](docs/screenshots/main.png)
 
+| Note detail (an imported Obsidian note) | Link graph |
+| --- | --- |
+| ![Note detail](docs/screenshots/detail.png) | ![Link graph](docs/screenshots/graph.png) |
+
 | Random Walk | Cognitive map |
 | --- | --- |
 | ![Random Walk](docs/screenshots/walk.png) | ![Cognitive map](docs/screenshots/map.png) |
@@ -47,7 +51,7 @@ Related notes, semantic search, Random Walk, and the cognitive map work offline.
 - Import flomo HTML, Mori JSON, Markdown / TXT, CSV (Day One and generic), and WeChat Reading highlight text
 - Import an Obsidian vault (Settings → Import / Export → Obsidian vault): one note per Markdown file, YAML properties kept, tags, wikilinks, and embedded images carried over
 - Export JSON (complete, re-importable), Markdown, and HTML, images included
-- A local HTTP API and an MCP server so Shortcuts, scripts, and AI tools can read and write notes (below)
+- A local HTTP API, an MCP server, and the `mori` command line, so Shortcuts, scripts, and AI tools can read, write, and analyse notes (below)
 
 ## Install
 
@@ -148,6 +152,7 @@ A source build produces the `mori` binary (`cargo run --release` writes `target/
 | Action | Shortcut |
 | --- | --- |
 | New note | `⌘N` or `⌘/` |
+| Send or save the note being written | `⌘↩` |
 | Search | `⌘K` |
 | Show or hide the sidebar | `⌘\` |
 | Back to all notes | `⌘⇧F` |
@@ -160,11 +165,13 @@ A source build produces the `mori` binary (`cargo run --release` writes `target/
 
 ```
 src/
-  main.rs         entry: window, menus, and the --mcp / --import flags
+  main.rs         entry: window and menus; hands known commands to the CLI
+  cli.rs          the mori command line (list, search, new, export, …)
   api_server.rs   local HTTP API
-  mcp.rs          MCP server
+  mcp.rs          MCP server; its tools also back the CLI
   core/           UI-free logic: storage, parsing, search, similarity, review, AI client, import/export, share images
   ui/             GPUI interface: sidebar, stream, composer, detail, feature pages, settings
+docs/AI.md        guide for AI tools (also printed by mori guide)
 scripts/          packaging and icon generation
 ```
 

@@ -12,6 +12,10 @@
 
 ![全部笔记](docs/screenshots/main.png)
 
+| 笔记详情（导入的 Obsidian 笔记） | 关系图谱 |
+| --- | --- |
+| ![笔记详情](docs/screenshots/detail.png) | ![关系图谱](docs/screenshots/graph.png) |
+
 | 随机漫步 | 认知地图 |
 | --- | --- |
 | ![随机漫步](docs/screenshots/walk.png) | ![认知地图](docs/screenshots/map.png) |
@@ -19,7 +23,9 @@
 ## 功能
 
 **记录**
-- 输入框支持 `#标签`（可多级，如 `#读书/心理学`）、图片（可直接粘贴）、列表，以及 `**加粗**`、`==高亮==`、`__下划线__`、`~~删除线~~`
+- 输入框支持 `#标签`（可多级，如 `#读书/心理学`）、列表，以及 `**加粗**`、`==高亮==`、`__下划线__`、`~~删除线~~`
+- 图片写在正文里（`![](images/…)`），阅读时显示在原来的位置；编辑时图片块带缩略图，正文下方有预览
+- Markdown：标题、代码块、表格、任务列表；YAML 属性显示在笔记顶部；`[[双链]]` 按标题或别名链接笔记
 - `@` 引用其他笔记，「批注」给旧笔记写新想法，两者都会建立双向链接
 - 历史版本、修改时间、置顶、回收站（可撤销）
 - 在某个标签下记录时自动带上该标签
@@ -43,8 +49,9 @@
 
 **导入导出与外部写入**
 - 导入：flomo 导出的 HTML、Mori JSON、Markdown / TXT、CSV（Day One 及通用格式）、微信读书笔记文本
+- 导入 Obsidian 仓库（设置 → 导入导出 →「Obsidian 仓库」）：每个 Markdown 文件一条笔记，保留 YAML 属性，标签、双链和嵌入的图片一起导入
 - 导出：JSON（完整，可再导入）、Markdown、HTML，图片一并复制
-- 本地 HTTP API 和 MCP 服务器，让快捷指令、脚本和 AI 工具读写笔记（见下文）
+- 本地 HTTP API、MCP 服务器和 `mori` 命令行，让快捷指令、脚本和 AI 工具读写、分析笔记（见下文）
 
 ## 安装
 
@@ -107,17 +114,30 @@ curl -H "Authorization: Bearer <令牌>" http://127.0.0.1:17321/api/v1/tags
 }
 ```
 
-提供的工具：`search_memos`、`get_memo`、`create_memo`、`update_memo`、`delete_memo`、`list_tags`、`get_related_memos`、`get_daily_review`、`get_memory_profile`、`get_stats`。
+提供的工具：`search_memos`（可翻页）、`get_memo`、`create_memo`、`update_memo`、`append_memo`、`delete_memo`、`list_tags`、`get_related_memos`、`get_daily_review`、`get_memory_profile`、`get_stats`。
 
 通过 API 和 MCP 写入的笔记会出现在侧边栏的「API 输入」中，点侧边栏的刷新按钮可立即读取。
 
 ## 命令行
 
+同一个可执行文件也是命令行工具，给你自己、脚本和 Claude Code、Codex、Cursor 等 AI 工具用。它读写的就是应用里的笔记库，应用开着时几秒内就能看到变化。加 `--json` 输出结构化结果。
+
 ```bash
-mori                       # 启动应用
-mori --mcp                 # 运行 MCP 服务器
-mori --import a.html b.csv # 导入文件后退出（自动跳过重复笔记）
+mori                                  # 启动应用
+mori list --limit 20 --tag 读书        # 最新笔记
+mori search 产品 想法 --json           # 关键词搜索（--semantic 按语义排序）
+mori get <id>                         # 一条笔记及其反向链接
+echo "一个想法 #收集箱" | mori new      # 从标准输入新建，或 mori new "内容" --tag 收集箱
+mori append <id> "再补一句"            # 另有 edit、rm（移入回收站）
+mori tags / stats / related <id> / review
+mori export --format jsonl --since 2026-01-01 > notes.jsonl   # 整批导出，方便分析
+mori import a.html b.csv              # 导入文件（自动跳过重复笔记）
+mori import-obsidian ~/vault          # 导入 Obsidian 仓库
+mori mcp                              # 以 stdio 运行 MCP 服务器（同 --mcp）
+mori guide                            # 给 AI 工具看的使用说明
 ```
+
+`mori install-cli`（或「设置 → MCP / API → 安装 mori 命令」）会把应用里的 `/Applications/Mori.app/Contents/MacOS/mori` 链接到 `~/.local/bin`。[docs/AI.md](docs/AI.md) 是给 AI 工具看的说明：笔记格式、JSON 结构和常见用法。
 
 从源码运行时，可执行文件名是 `mori`（`cargo run --release` 会生成 `target/release/mori`）。环境变量 `MORI_DATA_DIR` 可以指定数据目录，方便用一份测试数据试用而不影响真实笔记。旧的 `MINDFLOW_DATA_DIR` 仍然有效。
 
@@ -132,6 +152,7 @@ mori --import a.html b.csv # 导入文件后退出（自动跳过重复笔记）
 | 操作 | 快捷键 |
 | --- | --- |
 | 新建笔记 | `⌘N` 或 `⌘/` |
+| 发送 / 保存正在编辑的笔记 | `⌘↩` |
 | 搜索 | `⌘K` |
 | 显示 / 隐藏侧边栏 | `⌘\` |
 | 回到全部笔记 | `⌘⇧F` |
@@ -144,11 +165,13 @@ mori --import a.html b.csv # 导入文件后退出（自动跳过重复笔记）
 
 ```
 src/
-  main.rs         入口：窗口、菜单，以及 --mcp / --import 命令行
+  main.rs         入口：窗口、菜单；识别到命令时交给命令行
+  cli.rs          mori 命令行（list、search、new、export 等）
   api_server.rs   本地 HTTP API
-  mcp.rs          MCP 服务器
+  mcp.rs          MCP 服务器，命令行也复用它的工具
   core/           与界面无关的逻辑：存储、解析、搜索、语义相似度、回顾、AI 客户端、导入导出、分享图
   ui/             GPUI 界面：侧边栏、笔记流、输入框、详情、各功能页面与设置
+docs/AI.md        给 AI 工具的使用说明（mori guide 也会打印）
 scripts/          打包脚本与图标生成
 ```
 
