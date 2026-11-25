@@ -9,8 +9,8 @@ use gpui_kit::component::notification::Notification;
 use gpui_kit::component::{ActiveTheme as _, Icon, Selectable as _, Sizable as _, StyledExt as _, WindowExt as _, h_flex, v_flex};
 use gpui_kit::{
     Anchor, App, AppContext as _, ClipboardItem, Context, Entity, FocusHandle, Focusable, Image,
-    ImageFormat, InteractiveElement as _, IntoElement, KeyBinding, MouseButton, ParentElement as _,
-    Render, StatefulInteractiveElement as _, Styled as _, Subscription, Window, actions, div,
+    ImageFormat, InteractiveElement as _, IntoElement, KeyBinding, MouseButton, MouseMoveEvent, MouseUpEvent,
+    ParentElement as _, Render, StatefulInteractiveElement as _, Styled as _, Subscription, Window, actions, div,
     prelude::FluentBuilder as _, px,
 };
 use sha2::{Digest, Sha256};
@@ -57,7 +57,8 @@ actions!(
 const CONTEXT: &str = "Workspace";
 const TOP_BAR: f32 = 40.;
 const SHEET_TITLE_BAR: f32 = 48.;
-const DETAIL_WIDTH: f32 = 420.;
+const MIN_DETAIL_WIDTH: f32 = 360.;
+const MAX_DETAIL_WIDTH: f32 = 960.;
 /// The memo stream keeps at least this much width before the detail panel floats instead.
 const MIN_MAIN_WIDTH: f32 = 520.;
 const SIDEBAR_ANIMATION_SECS: f32 = 0.18;
@@ -153,6 +154,9 @@ pub struct Workspace {
     trash: Option<Entity<TrashPage>>,
     settings: Option<Entity<SettingsPage>>,
     detail: Option<Entity<MemoDetail>>,
+    detail_width: f32,
+    /// The detail panel's left edge is being dragged.
+    resizing_detail: bool,
     expanded_tags: HashSet<String>,
     locked: bool,
     lock_input: Entity<InputState>,
@@ -171,6 +175,7 @@ impl Workspace {
         let lock_input = cx.new(|cx| InputState::new(window, cx).masked(true).placeholder(t!("输入密码解锁")));
         let locked = library.read(cx).settings().lock_enabled;
         let sidebar_hidden = library.read(cx).settings().sidebar_hidden;
+        let detail_width = library.read(cx).settings().detail_width.max(MIN_DETAIL_WIDTH);
         let narrow = window.viewport_size().width < px(AUTO_COLLAPSE_WIDTH);
         let subscriptions = vec![
             cx.observe(&library, |_, _, cx| cx.notify()),
@@ -218,6 +223,8 @@ impl Workspace {
             trash: None,
             settings: None,
             detail: None,
+            detail_width,
+            resizing_detail: false,
             expanded_tags: HashSet::new(),
             locked,
             lock_input,
@@ -378,6 +385,17 @@ impl Workspace {
         });
     }
 
+    fn finish_detail_resize(&mut self, cx: &mut Context<Self>) {
+        if !self.resizing_detail {
+            return;
+        }
+        self.resizing_detail = false;
+        let width = self.detail_width.round();
+        let library = Library::global(cx);
+        let _ = library.update(cx, |lib, cx| lib.update_settings(cx, |s| s.detail_width = width));
+        cx.notify();
+    }
+
     fn insight_page(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Entity<InsightPage> {
         self.navigate(Route::Insight, window, cx);
         self.insight.clone().unwrap()
@@ -465,7 +483,7 @@ impl Workspace {
         };
         let nickname = lib.settings().nickname.clone();
         let dark = cx.theme().is_dark();
-        let svg = share::memo_share_svg(&memo, &nickname, dark, &|rid| lib.ref_label(rid));
+        let svg = share::memo_share_svg(&memo, &nickname, dark, &lib.store().images_dir(), &|rid| lib.ref_label(rid));
         match share::render_png(&svg, 2.0).and_then(|png| share::save_png(&png, t!("笔记")).map(|p| (png, p))) {
             Ok((png, path)) => {
                 cx.write_to_clipboard(ClipboardItem::new_image(&Image::from_bytes(ImageFormat::Png, png)));
@@ -829,7 +847,22 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &LockApp, window, cx| this.lock(window, cx)))
             .on_action(cx.listener(|this, _: &OpenSettings, window, cx| this.open_settings(SettingsSection::General, window, cx)))
             .on_action(cx.listener(|this, _: &CloseDetail, _, cx| this.escape(cx)))
-            .on_action(cx.listener(|this, _: &ToggleDarkMode, window, cx| this.toggle_dark_mode(window, cx)));
+            .on_action(cx.listener(|this, _: &ToggleDarkMode, window, cx| this.toggle_dark_mode(window, cx)))
+            .when(self.resizing_detail, |root| {
+                root.cursor_col_resize()
+                    .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, window, cx| {
+                        if event.pressed_button != Some(MouseButton::Left) {
+                            this.finish_detail_resize(cx);
+                            return;
+                        }
+                        let viewport = window.viewport_size().width.as_f32();
+                        let room = viewport - SIDEBAR_WIDTH * smoothstep(this.sidebar_t) - MIN_MAIN_WIDTH;
+                        let max = MAX_DETAIL_WIDTH.min(room).max(MIN_DETAIL_WIDTH);
+                        this.detail_width = (viewport - event.position.x.as_f32()).clamp(MIN_DETAIL_WIDTH, max);
+                        cx.notify();
+                    }))
+                    .capture_any_mouse_up(cx.listener(|this, _: &MouseUpEvent, _, cx| this.finish_detail_resize(cx)))
+            });
 
         if self.locked {
             return root.child(self.render_lock(cx)).into_any_element();
@@ -838,13 +871,15 @@ impl Render for Workspace {
             return root
                 .child(self.render_page())
                 .child(drag_strip().absolute().top_0().left_0().w(px(80.)).h(px(TOP_BAR)))
-                .children(self.detail.clone().map(|detail| floating_detail(detail, viewport.width.as_f32(), 64., cx)))
+                .children(self.detail.clone().map(|detail| floating_detail(detail, viewport.width.as_f32(), self.detail_width, 64., cx)))
                 .into_any_element();
         }
 
         let sidebar_px = SIDEBAR_WIDTH * smoothstep(self.sidebar_t);
         let drawer = smoothstep(self.drawer_t);
-        let dock_detail = viewport.width.as_f32() - sidebar_px - DETAIL_WIDTH >= MIN_MAIN_WIDTH;
+        let detail_room = viewport.width.as_f32() - sidebar_px - MIN_MAIN_WIDTH;
+        let dock_detail = detail_room >= MIN_DETAIL_WIDTH;
+        let detail_px = self.detail_width.min(detail_room).max(MIN_DETAIL_WIDTH);
         let show_agent = Library::global(cx).read(cx).settings().show_agent_button;
         root.child(
             h_flex()
@@ -904,14 +939,35 @@ impl Render for Workspace {
                 .when_some(self.detail.clone().filter(|_| dock_detail), |this, detail| {
                     this.child(
                         div()
-                            .w(px(DETAIL_WIDTH))
+                            .relative()
+                            .w(px(detail_px))
                             .flex_shrink_0()
                             .h_full()
                             .pt(px(TOP_BAR))
                             .border_l_1()
                             .border_color(theme.border)
                             .bg(s.card)
-                            .child(detail),
+                            .child(detail)
+                            .child(
+                                div()
+                                    .id("detail-resize")
+                                    .absolute()
+                                    .top_0()
+                                    .bottom_0()
+                                    .left(px(-3.))
+                                    .w(px(6.))
+                                    .cursor_col_resize()
+                                    .hover(|d| d.bg(s.accent.opacity(0.3)))
+                                    .when(self.resizing_detail, |d| d.bg(s.accent.opacity(0.45)))
+                                    .on_mouse_down(
+                                        MouseButton::Left,
+                                        cx.listener(|this, _, _, cx| {
+                                            this.resizing_detail = true;
+                                            cx.stop_propagation();
+                                            cx.notify();
+                                        }),
+                                    ),
+                            ),
                     )
                 }),
         )
@@ -919,7 +975,7 @@ impl Render for Workspace {
             self.detail
                 .clone()
                 .filter(|_| !dock_detail)
-                .map(|detail| floating_detail(detail, viewport.width.as_f32(), 12., cx)),
+                .map(|detail| floating_detail(detail, viewport.width.as_f32(), self.detail_width, 12., cx)),
         )
         .when(drawer > 0.001, |this| {
             this.child(
@@ -955,7 +1011,7 @@ impl Render for Workspace {
 }
 
 /// The memo detail as a panel over the content, for full-window overlays and narrow windows.
-fn floating_detail(detail: Entity<MemoDetail>, viewport_width: f32, bottom: f32, cx: &App) -> gpui_kit::AnyElement {
+fn floating_detail(detail: Entity<MemoDetail>, viewport_width: f32, width: f32, bottom: f32, cx: &App) -> gpui_kit::AnyElement {
     let theme = cx.theme();
     let s = surfaces(cx);
     div()
@@ -964,7 +1020,7 @@ fn floating_detail(detail: Entity<MemoDetail>, viewport_width: f32, bottom: f32,
         .top(px(TOP_BAR + 8.))
         .right_3()
         .bottom(px(bottom))
-        .w(px((viewport_width - 24.).min(DETAIL_WIDTH)))
+        .w(px((viewport_width - 24.).min(width)))
         .rounded_xl()
         .overflow_hidden()
         .border_1()

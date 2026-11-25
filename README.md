@@ -19,7 +19,9 @@ The interface language can be switched in Settings → General: 简体中文, En
 ## Features
 
 **Capture**
-- The composer takes `#tags` (nested, such as `#reading/psychology`), pasted images, lists, and `**bold**`, `==highlight==`, `__underline__`, `~~strike~~`
+- The composer takes `#tags` (nested, such as `#reading/psychology`), lists, and `**bold**`, `==highlight==`, `__underline__`, `~~strike~~`
+- Images live inside the text (`![](images/…)`) and show where you put them, both when reading and, as thumbnails, while editing
+- Markdown: headings, code blocks, tables, task lists, and YAML frontmatter shown as properties; `[[wikilinks]]` link notes by title or alias
 - `@` cites another note. An annotation writes a new thought onto an old card. Both create a backlink
 - History, edit time, pins, and a trash that can be undone
 - Writing under a tag attaches that tag automatically
@@ -43,6 +45,7 @@ Related notes, semantic search, Random Walk, and the cognitive map work offline.
 
 **Import, export, and outside writers**
 - Import flomo HTML, Mori JSON, Markdown / TXT, CSV (Day One and generic), and WeChat Reading highlight text
+- Import an Obsidian vault (Settings → Import / Export → Obsidian vault): one note per Markdown file, YAML properties kept, tags, wikilinks, and embedded images carried over
 - Export JSON (complete, re-importable), Markdown, and HTML, images included
 - A local HTTP API and an MCP server so Shortcuts, scripts, and AI tools can read and write notes (below)
 
@@ -117,7 +120,10 @@ Notes written through the API or MCP show up under “API inbox” in the sideba
 mori                       # launch the app
 mori --mcp                 # run the MCP server
 mori --import a.html b.csv # import files and exit (duplicates are skipped)
+mori --import-obsidian ~/vault  # import an Obsidian vault and exit
 ```
+
+The installed app's binary is `/Applications/Mori.app/Contents/MacOS/mori`; it is not on `PATH` unless you link it there.
 
 A source build produces the `mori` binary (`cargo run --release` writes `target/release/mori`). `MORI_DATA_DIR` points at a data directory, so you can try the app against a copy and leave real notes alone. The older `MINDFLOW_DATA_DIR` still works.
 

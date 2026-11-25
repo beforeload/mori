@@ -24,6 +24,9 @@ pub struct Memo {
     pub tags: Vec<String>,
     #[serde(skip)]
     pub refs: Vec<MemoId>,
+    /// Obsidian `[[note]]` targets. Resolved against titles and aliases when linking.
+    #[serde(skip, default)]
+    pub wikilinks: Vec<String>,
     #[serde(skip)]
     pub char_count: usize,
     #[serde(skip)]
@@ -38,6 +41,7 @@ impl Memo {
     pub fn refresh_derived(&mut self) {
         self.tags = parse::extract_tags(&self.content);
         self.refs = parse::extract_refs(&self.content);
+        self.wikilinks = parse::wikilink_targets(&self.content);
         self.char_count = parse::plain_char_count(&self.content);
         self.has_link = parse::has_link(&self.content);
     }
@@ -53,6 +57,11 @@ impl Memo {
 
     pub fn snippet(&self, max_chars: usize) -> String {
         parse::snippet(&self.content, max_chars)
+    }
+
+    /// The text as read and edited: stored images the text does not place come last.
+    pub fn body(&self) -> std::borrow::Cow<'_, str> {
+        super::images::with_unplaced(&self.content, &self.images)
     }
 }
 
@@ -275,6 +284,8 @@ pub struct Settings {
     pub language: Language,
     /// User choice for wide windows; narrow windows always tuck the sidebar away.
     pub sidebar_hidden: bool,
+    /// Width of the note detail panel, set by dragging its left edge.
+    pub detail_width: f32,
 }
 
 impl Default for Settings {
@@ -303,6 +314,7 @@ impl Default for Settings {
             nickname: "我".into(),
             font_size: 15.,
             sidebar_hidden: false,
+            detail_width: 480.,
             language: Language::ZhHans,
         }
     }

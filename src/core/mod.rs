@@ -1,5 +1,7 @@
 pub mod ai;
+pub mod frontmatter;
 pub mod graph;
+pub mod images;
 pub mod io;
 pub mod model;
 pub mod parse;

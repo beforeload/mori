@@ -174,6 +174,7 @@ pub fn source_label(source: &str) -> &str {
         "api" => "API",
         "mcp" => "MCP",
         "ai" => t!("AI 对话"),
+        "obsidian" => "Obsidian",
         other => other,
     }
 }

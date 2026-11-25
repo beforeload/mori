@@ -1,6 +1,6 @@
 //! Share images: memo cards and cognitive-map snapshots rendered as SVG, rasterized to PNG.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
 use anyhow::{Context as _, Result};
@@ -167,8 +167,17 @@ const DARK: ShareColors = ShareColors {
     highlight: "#5e4f1f",
 };
 
-/// A shareable card image for one memo, flomo style.
-pub fn memo_share_svg(memo: &Memo, nickname: &str, dark: bool, ref_label: &dyn Fn(&str) -> String) -> String {
+/// A library image sized to fit the card: (path, width, height).
+fn share_image(images_dir: &Path, src: &str, max_w: f32) -> Option<(PathBuf, f32, f32)> {
+    let path = images_dir.join(super::images::library_name(src)?);
+    let size = imagesize::size(&path).ok().filter(|s| s.width > 0 && s.height > 0)?;
+    let (w, h) = (size.width as f32, size.height as f32);
+    let scale = (max_w / w).min(640.0 / h).min(1.0);
+    Some((path, w * scale, h * scale))
+}
+
+/// A shareable card image for one memo, flomo style. Library images are drawn in place.
+pub fn memo_share_svg(memo: &Memo, nickname: &str, dark: bool, images_dir: &Path, ref_label: &dyn Fn(&str) -> String) -> String {
     let colors = if dark { &DARK } else { &LIGHT };
     let width = 750.0f32;
     let card_x = 40.0;
@@ -179,10 +188,23 @@ pub fn memo_share_svg(memo: &Memo, nickname: &str, dark: bool, ref_label: &dyn F
 
     let mut body = String::new();
     let mut y = 40.0 + 120.0;
-    for line in parse::parse_rich(&memo.content, &[], ref_label) {
+    for mut line in parse::parse_rich(&memo.body(), &[], ref_label) {
         if line.kind == LineKind::Blank {
             y += line_h * 0.5;
             continue;
+        }
+        if let LineKind::Image { src } = &line.kind {
+            if let Some((path, w, h)) = share_image(images_dir, src, inner_w) {
+                let top = y - font_size;
+                body.push_str(&format!(
+                    "<image x=\"{inner_x}\" y=\"{top}\" width=\"{w}\" height=\"{h}\" href=\"{}\"/>",
+                    escape(&path.to_string_lossy())
+                ));
+                y = top + h + line_h * 0.4 + font_size;
+                continue;
+            }
+            line.text = t!("[图片]").to_string();
+            line.styles.clear();
         }
         let (prefix, indent) = match &line.kind {
             LineKind::Bullet => ("•".to_string(), 34.0),
@@ -291,13 +313,26 @@ mod tests {
             images: vec![],
             tags: vec![],
             refs: vec![],
+            wikilinks: vec![],
             char_count: 0,
             has_link: false,
         };
         memo.refresh_derived();
-        let svg = memo_share_svg(&memo, "Mori", false, &|_| String::new());
+        let svg = memo_share_svg(&memo, "Mori", false, Path::new("/nonexistent"), &|_| String::new());
         let png = render_png(&svg, 1.0).unwrap();
         assert!(png.starts_with(&[0x89, b'P', b'N', b'G']));
         assert!(png.len() > 5000);
+
+        let dir = std::env::temp_dir().join(format!("mori-share-{}", super::super::store::new_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut red = tiny_skia::Pixmap::new(40, 20).unwrap();
+        red.fill(tiny_skia::Color::from_rgba8(220, 0, 0, 255));
+        std::fs::write(dir.join("red.png"), red.encode_png().unwrap()).unwrap();
+        memo.content = "上面\n![](images/red.png)\n下面".into();
+        memo.refresh_derived();
+        let svg = memo_share_svg(&memo, "Mori", false, &dir, &|_| String::new());
+        let card = tiny_skia::Pixmap::decode_png(&render_png(&svg, 1.0).unwrap()).unwrap();
+        let reds = card.pixels().iter().filter(|p| p.red() > 200 && p.green() < 30 && p.blue() < 30).count();
+        assert!(reds >= 700, "image drawn in the card: {reds} red pixels");
     }
 }

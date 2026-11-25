@@ -2,9 +2,8 @@ use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::menu::{DropdownMenu as _, PopupMenuItem};
 use gpui_kit::component::{ActiveTheme as _, Icon, Sizable as _, h_flex, v_flex};
 use gpui_kit::{
-    Anchor, AnyElement, App, InteractiveElement as _, IntoElement, ObjectFit, ParentElement as _,
-    SharedString, StatefulInteractiveElement as _, Styled as _, StyledImage as _, div, img,
-    prelude::FluentBuilder as _,
+    Anchor, AnyElement, App, InteractiveElement as _, IntoElement, ParentElement as _,
+    SharedString, StatefulInteractiveElement as _, Styled as _, div, prelude::FluentBuilder as _,
 };
 
 use crate::core::model::Memo;
@@ -94,33 +93,6 @@ fn card_menu(memo: &Memo, mode: CardMode, scope: &'static str) -> impl IntoEleme
         })
 }
 
-pub fn image_strip(scope: &str, memo: &Memo, library: &Library, size_rem: f32) -> Option<AnyElement> {
-    if memo.images.is_empty() {
-        return None;
-    }
-    let store = library.store();
-    Some(
-        h_flex()
-            .flex_wrap()
-            .gap_2()
-            .children(memo.images.iter().enumerate().map(|(i, name)| {
-                let path = store.image_path(name);
-                let open = path.clone();
-                div()
-                    .id(SharedString::from(format!("{scope}-img-{}-{i}", memo.id)))
-                    .size(gpui_kit::rems(size_rem))
-                    .rounded_md()
-                    .overflow_hidden()
-                    .cursor_pointer()
-                    .child(img(path).size_full().object_fit(ObjectFit::Cover))
-                    .on_click(move |_, _, cx| {
-                        cx.open_url(&format!("file://{}", open.display()));
-                    })
-            }))
-            .into_any_element(),
-    )
-}
-
 /// A small clickable summary that opens the memo in the detail panel.
 pub fn mini_card(scope: &str, memo: &Memo, note: Option<String>, cx: &App) -> AnyElement {
     let theme = cx.theme();
@@ -169,7 +141,7 @@ pub fn memo_card(memo: &Memo, opts: CardOptions, library: &Library, cx: &App) ->
     let fold = settings.fold_long_memos && !opts.expanded && opts.mode != CardMode::Trash;
     let (content, truncated) = render_content(
         format!("{scope}-rt-{id}"),
-        &memo.content,
+        &memo.body(),
         &opts.keywords,
         fold.then_some(opts.max_lines),
         &ref_label,
@@ -224,7 +196,7 @@ pub fn memo_card(memo: &Memo, opts: CardOptions, library: &Library, cx: &App) ->
         .child(
             div()
                 .id(SharedString::from(format!("{scope}-body-{id}")))
-                .text_color(theme.foreground)
+                .text_color(theme.foreground.opacity(0.86))
                 .child(content)
                 .when(opts.mode == CardMode::Normal, |this| {
                     this.on_click(move |event, window, cx| {
@@ -257,7 +229,6 @@ pub fn memo_card(memo: &Memo, opts: CardOptions, library: &Library, cx: &App) ->
                     .on_click(move |_, window, cx| dispatch(Command::Expand(collapse_id.clone()), window, cx)),
             )
         })
-        .children(image_strip(scope, memo, library, 5.75))
         .when(backlinks > 0 && opts.mode != CardMode::Trash, |this| {
             this.child(
                 h_flex()

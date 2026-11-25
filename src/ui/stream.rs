@@ -33,17 +33,15 @@ use super::tasks::run_blocking;
 use super::theme::surfaces;
 use super::{Command, Lucide, Route, dispatch};
 
-/// Cards grow with the window up to this width, then stay centred.
-const CONTENT_MAX_WIDTH: f32 = 1080.;
-
 /// (source key, label) for the 笔记来源 filter; `None` shows every source.
-fn sources() -> [(Option<&'static str>, &'static str); 6] { [
+fn sources() -> [(Option<&'static str>, &'static str); 7] { [
     (None, t!("全部")),
     (Some("app"), t!("应用内")),
     (Some("api"), "API"),
     (Some("mcp"), "MCP"),
     (Some("ai"), t!("AI 对话")),
     (Some("import"), t!("导入")),
+    (Some("obsidian"), "Obsidian"),
 ]}
 
 #[derive(Clone, Copy)]
@@ -1067,8 +1065,6 @@ impl Render for MemoStream {
             .child(
                 v_flex()
                     .w_full()
-                    .max_w(px(CONTENT_MAX_WIDTH))
-                    .mx_auto()
                     .px_6()
                     .gap_3()
                     .child(
@@ -1092,11 +1088,9 @@ impl Render for MemoStream {
                             cx.processor(|this, ix, window, cx| {
                                 v_flex()
                                     .w_full()
-                                    .items_center()
                                     .child(
                                         div()
                                             .w_full()
-                                            .max_w(px(CONTENT_MAX_WIDTH))
                                             .px_6()
                                             .when(ix == 0, |d| d.pt_3())
                                             .child(this.render_item(ix, window, cx)),

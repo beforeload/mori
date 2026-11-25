@@ -3,21 +3,21 @@
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::menu::DropdownMenu as _;
 use gpui_kit::component::input::{
-    Escape as InputEscape, IndentInline, InlineToken, InputContent, InputEvent, MoveDown, MoveUp, Textarea,
-    TextareaState,
+    Escape as InputEscape, IndentInline, InlineToken, InlineTokenContext, InputContent, InputEvent, InputToken,
+    MoveDown, MoveUp, Textarea, TextareaState,
 };
 use gpui_kit::component::{ActiveTheme as _, Disableable as _, Icon, Sizable as _, WindowExt as _, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, AppContext as _, ClipboardEntry, Context, Entity, EventEmitter, FocusHandle, Focusable,
     ImageFormat, InteractiveElement as _, IntoElement, MouseButton, ParentElement as _,
     PathPromptOptions, Pixels, Point, Render, ScrollHandle, SharedString, StatefulInteractiveElement as _,
-    Styled as _, StyledImage as _, Subscription, Task, Window, actions, anchored, deferred, div,
-    img, point, px,
-    prelude::FluentBuilder as _,
+    Styled as _, StyledImage as _, Subscription, Task, Window, actions, anchored, deferred, div, img, point, px,
+    App, ObjectFit, prelude::FluentBuilder as _,
 };
 
 use crate::core::time;
 
+use crate::core::images;
 use crate::core::model::MemoId;
 use crate::core::parse;
 use crate::core::store::NewMemo;
@@ -89,7 +89,6 @@ pub struct Composer {
     input: Entity<TextareaState>,
     mode: ComposerMode,
     default_tag: Option<String>,
-    images: Vec<String>,
     suggestion: Option<Suggestion>,
     /// Keeps Enter from inserting a newline while the flomo-style picker is open.
     suggest_open: bool,
@@ -123,7 +122,20 @@ pub fn content_with_tokens(content: &str, library: &Library) -> InputContent {
             value = next;
         }
     }
+    for image in images::spans(content) {
+        let Some(name) = images::library_name(&image.src) else { continue };
+        let token = image_token(name, &image.alt);
+        if let Ok(next) = value.clone().with_token(image.range, token) {
+            value = next;
+        }
+    }
     value
+}
+
+/// An image in the editor: one atomic chip standing for its Markdown.
+fn image_token(name: &str, alt: &str) -> InlineToken {
+    let label = if alt.is_empty() { t!("[图片]").to_string() } else { format!("{} {alt}", t!("[图片]")) };
+    InlineToken::new(name.to_string(), images::markdown(name, alt)).with_label(label)
 }
 
 impl Composer {
@@ -138,7 +150,6 @@ impl Composer {
             input,
             mode: ComposerMode::New,
             default_tag: None,
-            images: Vec::new(),
             suggestion: None,
             suggest_open: false,
             suggest_anchor: None,
@@ -173,17 +184,11 @@ impl Composer {
 
     pub fn set_mode(&mut self, mode: ComposerMode, window: &mut Window, cx: &mut Context<Self>) {
         let library = Library::global(cx);
-        match &mode {
-            ComposerMode::New => {
-                self.images.clear();
-            }
-            ComposerMode::Edit(id) => {
-                let lib = library.read(cx);
-                if let Some(memo) = lib.store().get(id) {
-                    let content = content_with_tokens(&memo.content, lib);
-                    self.images = memo.images.clone();
-                    self.input.update(cx, |state, cx| state.set_value(content, window, cx));
-                }
+        if let ComposerMode::Edit(id) = &mode {
+            let lib = library.read(cx);
+            if let Some(memo) = lib.store().get(id) {
+                let content = content_with_tokens(&memo.body(), lib);
+                self.input.update(cx, |state, cx| state.set_value(content, window, cx));
             }
         }
         self.mode = mode;
@@ -208,7 +213,7 @@ impl Composer {
     }
 
     pub fn is_empty(&self, cx: &gpui_kit::App) -> bool {
-        self.input.read(cx).value().trim().is_empty() && self.images.is_empty()
+        self.input.read(cx).value().trim().is_empty()
     }
 
     fn on_input_event(
@@ -413,40 +418,124 @@ impl Composer {
         });
     }
 
-    fn pick_images(&mut self, _: &mut Window, cx: &mut Context<Self>) {
+    fn pick_images(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let paths = cx.prompt_for_paths(PathPromptOptions {
             files: true,
             directories: false,
             multiple: true,
             prompt: Some(t!("添加图片").into()),
         });
-        cx.spawn(async move |this, cx| {
+        cx.spawn_in(window, async move |this, cx| {
             let Ok(Ok(Some(paths))) = paths.await else {
                 return;
             };
-            let _ = this.update(cx, |this, cx| {
+            let _ = this.update_in(cx, |this, window, cx| {
                 let library = Library::global(cx);
+                let mut names = Vec::new();
                 for path in paths {
                     match library.read(cx).store().import_image_file(&path) {
-                        Ok(name) => this.images.push(name),
+                        Ok(name) => names.push(name),
                         Err(err) => this.error = Some(t!("无法添加图片：{}", err)),
                     }
                 }
-                cx.notify();
+                this.insert_images(names, window, cx);
             });
         })
         .detach();
     }
 
-    fn paste_images(&mut self, entries: Vec<(Vec<u8>, &'static str)>, cx: &mut Context<Self>) {
+    fn paste_images(&mut self, entries: Vec<(Vec<u8>, &'static str)>, window: &mut Window, cx: &mut Context<Self>) {
         let library = Library::global(cx);
+        let mut names = Vec::new();
         for (bytes, ext) in entries {
             match library.read(cx).store().save_image_bytes(&bytes, ext) {
-                Ok(name) => self.images.push(name),
+                Ok(name) => names.push(name),
                 Err(err) => self.error = Some(t!("无法保存图片：{}", err)),
             }
         }
+        self.insert_images(names, window, cx);
+    }
+
+    /// Puts each image on its own line at the caret, where it will show when read.
+    fn insert_images(&mut self, names: Vec<String>, window: &mut Window, cx: &mut Context<Self>) {
+        self.input.update(cx, |state, cx| {
+            for name in names {
+                let cursor = state.cursor();
+                if cursor > 0 && !state.value()[..cursor].ends_with('\n') {
+                    state.insert("\n", window, cx);
+                }
+                let cursor = state.cursor();
+                if state.replace_range_with_token(cursor..cursor, image_token(&name, ""), window, cx).is_ok() {
+                    state.insert("\n", window, cx);
+                }
+            }
+            state.focus(window, cx);
+        });
         cx.notify();
+    }
+
+    /// Deletes one image (and the line break after it) from the text.
+    fn remove_image(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.input.update(cx, |state, cx| {
+            let text = state.value().to_string();
+            let Some(image) = images::spans(&text).into_iter().find(|i| images::library_name(&i.src) == Some(name)) else {
+                return;
+            };
+            let end = if text[image.range.end..].starts_with('\n') { image.range.end + 1 } else { image.range.end };
+            state.set_selected_range(image.range.start..end, cx);
+            state.replace("", window, cx);
+            state.focus(window, cx);
+        });
+        cx.notify();
+    }
+
+    /// While editing, the note's images are shown under the text in the order they appear.
+    fn render_image_preview(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        const HEIGHT: f32 = 88.;
+        let text = self.input.read(cx).value();
+        let names = images::library_names(&text);
+        if names.is_empty() {
+            return None;
+        }
+        let library = Library::global(cx);
+        let theme = cx.theme().clone();
+        Some(
+            h_flex()
+                .flex_wrap()
+                .gap_2()
+                .children(names.into_iter().enumerate().map(|(i, name)| {
+                    let path = library.read(cx).store().image_path(&name);
+                    let (w, h) = super::rich_text::image_size(&path).unwrap_or((HEIGHT, HEIGHT));
+                    let width = (HEIGHT * w / h).clamp(48., 240.);
+                    let open = path.clone();
+                    div()
+                        .id(("composer-image", i))
+                        .group("composer-image")
+                        .relative()
+                        .w(px(width))
+                        .h(px(HEIGHT))
+                        .rounded_md()
+                        .overflow_hidden()
+                        .border_1()
+                        .border_color(theme.border)
+                        .cursor_pointer()
+                        .child(img(path).size_full().object_fit(ObjectFit::Cover))
+                        .on_click(move |_, _, cx| cx.open_with_system(&open))
+                        .child(
+                            div().absolute().top_1().right_1().invisible().group_hover("composer-image", |d| d.visible()).child(
+                                Button::new(("remove-image", i))
+                                    .xsmall()
+                                    .icon(Icon::new(Lucide::X))
+                                    .tooltip(t!("从正文删除这张图片"))
+                                    .on_click(cx.listener(move |this, _, window, cx| {
+                                        cx.stop_propagation();
+                                        this.remove_image(&name, window, cx);
+                                    })),
+                            ),
+                        )
+                }))
+                .into_any_element(),
+        )
     }
 
     fn suggest_tags_with_ai(&mut self, _: &mut Window, cx: &mut Context<Self>) {
@@ -512,28 +601,27 @@ impl Composer {
 
     pub fn submit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let content = self.input.read(cx).value().trim().to_string();
-        if content.is_empty() && self.images.is_empty() {
+        if content.is_empty() {
             return;
         }
         let library = Library::global(cx);
-        let images = self.images.clone();
         let mode = self.mode.clone();
+        // The store reads which images a note holds from its text.
         let result = library.update(cx, |lib, cx| {
             lib.mutate(cx, |store| match &mode {
                 ComposerMode::New => store.create_memo(NewMemo {
                     content: content.clone(),
                     created_at: None,
-                    images,
+                    images: Vec::new(),
                     source: "app".into(),
                 }),
-                ComposerMode::Edit(id) => store.update_memo(id, content.clone(), images).map(|_| id.clone()),
+                ComposerMode::Edit(id) => store.update_memo(id, content.clone(), Vec::new()).map(|_| id.clone()),
             })
         });
         match result {
             Ok(id) => {
                 if mode == ComposerMode::New {
                     self.prefill_default_tag(window, cx);
-                    self.images.clear();
                     self.ai_tags.clear();
                 }
                 self.set_suggestion(None, cx);
@@ -745,6 +833,36 @@ impl Composer {
     }
 }
 
+/// Image chips carry a thumbnail; other tokens (note references) keep the default look.
+fn render_token(context: &InlineTokenContext, _: &mut Window, cx: &mut App) -> AnyElement {
+    let token = context.token();
+    if !token.text().starts_with("![") {
+        return InputToken::new(context).into_any_element();
+    }
+    let theme = cx.theme();
+    let height = context.line_height();
+    let path = Library::global(cx).read(cx).store().image_path(token.id());
+    h_flex()
+        .id("image-token")
+        .h(height)
+        .max_w(context.available_width())
+        .gap_1()
+        .pl_0p5()
+        .pr_1p5()
+        .rounded(theme.radius)
+        .border_1()
+        .map(|chip| {
+            if context.is_selected() {
+                chip.bg(theme.selection).border_color(theme.selection.alpha(1.))
+            } else {
+                chip.bg(theme.muted).border_color(theme.border)
+            }
+        })
+        .child(img(path).size(height - px(4.)).flex_shrink_0().rounded_sm().object_fit(ObjectFit::Cover))
+        .child(div().min_w_0().text_ellipsis().child(token.label().clone()))
+        .into_any_element()
+}
+
 fn image_extension(format: ImageFormat) -> &'static str {
     match format {
         ImageFormat::Png => "png",
@@ -762,13 +880,6 @@ impl Render for Composer {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
         let view = cx.entity().downgrade();
-        let library = Library::global(cx);
-        let store_images: Vec<(usize, std::path::PathBuf)> = self
-            .images
-            .iter()
-            .enumerate()
-            .map(|(i, name)| (i, library.read(cx).store().image_path(name)))
-            .collect();
         let focused = self.input.focus_handle(cx).is_focused(window);
         let s = super::theme::surfaces(cx);
         v_flex()
@@ -813,7 +924,7 @@ impl Render for Composer {
             .child(
                 Textarea::new(&self.input)
                     .appearance(false)
-                    .on_paste(move |item, _, cx| {
+                    .on_paste(move |item, window, cx| {
                         let images: Vec<(Vec<u8>, &'static str)> = item
                             .entries()
                             .iter()
@@ -827,10 +938,12 @@ impl Render for Composer {
                         if images.is_empty() {
                             return false;
                         }
-                        let _ = view.update(cx, |this, cx| this.paste_images(images, cx));
+                        let _ = view.update(cx, |this, cx| this.paste_images(images, window, cx));
                         true
-                    }),
+                    })
+                    .token(render_token),
             )
+            .children(self.render_image_preview(cx))
             .when_some(self.render_suggestions(window, cx), |this, panel| this.child(panel))
             .when(!self.ai_tags.is_empty(), |this| {
                 this.child(
@@ -848,30 +961,6 @@ impl Render for Composer {
                                 .on_click(cx.listener(move |this, _, window, cx| this.append_tag(&t, window, cx)))
                         })),
                 )
-            })
-            .when(!store_images.is_empty(), |this| {
-                this.child(h_flex().flex_wrap().gap_2().children(store_images.into_iter().map(|(i, path)| {
-                    div()
-                        .id(("composer-image", i))
-                        .relative()
-                        .size_16()
-                        .rounded_md()
-                        .overflow_hidden()
-                        .child(img(path).size_full().object_fit(gpui_kit::ObjectFit::Cover))
-                        .child(
-                            div().absolute().top_0().right_0().child(
-                                Button::new(("remove-image", i))
-                                    .xsmall()
-                                    .icon(Icon::new(Lucide::X))
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        if i < this.images.len() {
-                                            this.images.remove(i);
-                                        }
-                                        cx.notify();
-                                    })),
-                            ),
-                        )
-                })))
             })
             .when_some(self.error.clone(), |this, err| {
                 this.child(div().text_xs().text_color(theme.danger).child(err))

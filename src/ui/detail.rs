@@ -138,7 +138,7 @@ impl MemoDetail {
         let Some(memo) = store.get(&self.memo_id) else {
             return div().into_any_element();
         };
-        let refs: Vec<_> = memo.refs.iter().filter_map(|id| store.get_active(id)).collect();
+        let refs = store.outgoing(memo);
         let backlinks = store.backlinks(&memo.id);
         let own_tags = memo.tags.clone();
         let hide = self.hide_same_tag;

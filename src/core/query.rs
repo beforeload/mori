@@ -159,7 +159,7 @@ impl MemoFilter {
             }
         }
         if !keywords.is_empty() {
-            let haystack = memo.content.to_lowercase();
+            let haystack = super::images::strip(&memo.content).to_lowercase();
             if !keywords
                 .iter()
                 .all(|k| haystack.contains(&k.to_lowercase()))

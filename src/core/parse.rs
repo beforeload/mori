@@ -21,30 +21,70 @@ const TAG_TRAILING: &[char] = &[
     ',', '.', ';', ':', '!', '?', '，', '。', '；', '：', '！', '？', '、', ')', '）', ']', '】', '}',
     '」', '』', '》', '"', '\'', '”', '’', '/', '*', '=', '~',
 ];
+/// Full-width punctuation ends a tag even mid-word: `#读书（上）` is `#读书`.
+const TAG_STOP: &[char] = &['，', '。', '；', '：', '！', '？', '、', '（', '）', '【', '】', '「', '」', '『', '』', '《', '》'];
+
+/// Byte ranges of fenced code blocks and inline `code` spans, where `#` is not a tag.
+fn code_ranges(content: &str) -> Vec<Range<usize>> {
+    let mut ranges = Vec::new();
+    let mut fence_start: Option<usize> = None;
+    let mut offset = 0;
+    for line in content.split_inclusive('\n') {
+        if line.trim_start().starts_with("```") {
+            match fence_start.take() {
+                Some(start) => ranges.push(start..offset + line.len()),
+                None => fence_start = Some(offset),
+            }
+        } else if fence_start.is_none() {
+            let mut open: Option<usize> = None;
+            for (i, _) in line.match_indices('`') {
+                match open.take() {
+                    Some(start) => ranges.push(offset + start..offset + i + 1),
+                    None => open = Some(i),
+                }
+            }
+        }
+        offset += line.len();
+    }
+    if let Some(start) = fence_start {
+        ranges.push(start..content.len());
+    }
+    ranges
+}
 
 pub fn ref_token(id: &str) -> String {
     format!("[[memo:{id}]]")
 }
 
 /// Byte ranges of every `#tag` (including the `#`) together with the tag name.
+pub fn wikilink_targets(content: &str) -> Vec<String> {
+    super::frontmatter::note_links(content)
+}
+
 pub fn tag_spans(content: &str) -> Vec<(Range<usize>, String)> {
+    let body_at = super::frontmatter::body_start(content);
     let ref_ranges: Vec<Range<usize>> = REF_RE.find_iter(content).map(|m| m.range()).collect();
     let url_ranges: Vec<Range<usize>> = URL_RE.find_iter(content).map(|m| m.range()).collect();
+    let code = code_ranges(content);
     let mut spans = Vec::new();
     for m in TAG_RE.find_iter(content) {
         let start = m.start();
-        if start > 0 {
-            let prev = content[..start].chars().next_back().unwrap_or(' ');
-            if !prev.is_whitespace() {
-                continue;
-            }
+        if start < body_at {
+            continue;
         }
-        if ref_ranges.iter().chain(url_ranges.iter()).any(|r| r.contains(&start)) {
+        // flomo writes bold tags as `**#tag**`: markup markers may sit between the space and `#`.
+        let before = content[..start].trim_end_matches(['*', '_', '=', '~']);
+        if before.chars().next_back().is_some_and(|c| !c.is_whitespace()) {
+            continue;
+        }
+        if ref_ranges.iter().chain(url_ranges.iter()).chain(code.iter()).any(|r| r.contains(&start)) {
             continue;
         }
         let raw = &content[start + 1..m.end()];
+        let raw = raw.split(TAG_STOP).next().unwrap_or("");
         let name = raw.trim_end_matches(TAG_TRAILING);
-        if name.is_empty() {
+        // Like Obsidian, `#2` or `#000` (list numbers, issue ids, colours) is not a tag.
+        if name.is_empty() || name.chars().all(|c| c.is_ascii_digit()) {
             continue;
         }
         spans.push((start..start + 1 + name.len(), name.to_string()));
@@ -55,6 +95,11 @@ pub fn tag_spans(content: &str) -> Vec<(Range<usize>, String)> {
 pub fn extract_tags(content: &str) -> Vec<String> {
     let mut tags: Vec<String> = Vec::new();
     for (_, tag) in tag_spans(content) {
+        if !tags.contains(&tag) {
+            tags.push(tag);
+        }
+    }
+    for tag in super::frontmatter::tags(content) {
         if !tags.contains(&tag) {
             tags.push(tag);
         }
@@ -92,7 +137,8 @@ pub fn has_link(content: &str) -> bool {
 
 /// Content with markup removed, used for counting, snippets and vectors.
 pub fn plain_text(content: &str) -> String {
-    let without_refs = REF_RE.replace_all(content, "");
+    let source = super::images::strip(super::frontmatter::body(content));
+    let without_refs = REF_RE.replace_all(&source, "");
     let mut out = String::with_capacity(without_refs.len());
     for line in without_refs.lines() {
         let trimmed = line.trim();
@@ -110,7 +156,13 @@ pub fn plain_text(content: &str) -> String {
         }
         out.push('\n');
     }
-    out.trim().to_string()
+    let mut text = out.trim().to_string();
+    if let Some(title) = super::frontmatter::title(content)
+        && !text.contains(&title)
+    {
+        text = if text.is_empty() { title } else { format!("{title}\n{text}") };
+    }
+    text
 }
 
 pub fn plain_char_count(content: &str) -> usize {
@@ -151,7 +203,13 @@ pub fn rename_tag_in(content: &str, old: &str, new: &str) -> String {
         }
     }
     out.push_str(&content[last..]);
-    out
+    super::frontmatter::map_tags(&out, |tag| {
+        if super::model::tag_matches(tag, old) {
+            Some(format!("{new}{}", &tag[old.len()..]))
+        } else {
+            Some(tag.to_string())
+        }
+    })
 }
 
 /// Removes every tag equal to `tag` or nested below it, keeping the rest of the text.
@@ -170,7 +228,14 @@ pub fn remove_tag_in(content: &str, tag: &str) -> String {
     }
     out.push_str(&content[last..]);
     let cleaned: Vec<&str> = out.lines().map(|l| l.trim_end()).collect();
-    cleaned.join("\n").trim().to_string()
+    let cleaned = cleaned.join("\n").trim().to_string();
+    super::frontmatter::map_tags(&cleaned, |found| {
+        if super::model::tag_matches(found, tag) {
+            None
+        } else {
+            Some(found.to_string())
+        }
+    })
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -180,6 +245,8 @@ pub enum LineKind {
     Ordered(String),
     Quote,
     Blank,
+    /// One frontmatter field, shown above the body.
+    Property,
     Heading(u8),
     /// Fenced code block; `text` on the [`RichLine`] is the raw code.
     CodeBlock { lang: Option<String> },
@@ -187,6 +254,8 @@ pub enum LineKind {
     TableRow { is_header: bool, cells: Vec<String> },
     Rule,
     Task { checked: bool },
+    /// A Markdown image shown in place; `text` on the [`RichLine`] is the alt text.
+    Image { src: String },
 }
 
 pub fn split_line_kind(line: &str) -> (LineKind, &str) {
@@ -264,15 +333,61 @@ fn split_table_row(line: &str) -> Option<Vec<String>> {
     if !t.contains('|') {
         return None;
     }
-    let body = t.trim_matches('|');
+    let body = t.strip_prefix('|').unwrap_or(t);
+    let body = if body.ends_with('|') && !body.ends_with("\\|") { &body[..body.len() - 1] } else { body };
     if body.chars().all(|c| c == '-' || c == ':' || c == '|' || c.is_whitespace()) {
         return None;
     }
-    let cells: Vec<String> = body.split('|').map(|c| c.trim().to_string()).collect();
+    let cells: Vec<String> = split_cells(body).into_iter().map(|c| c.trim().to_string()).collect();
     if cells.is_empty() || cells.iter().all(|c| c.is_empty()) {
         return None;
     }
     Some(cells)
+}
+
+/// Splits a table row on `|`, keeping `\|` (unescaped) and pipes inside `[[link|label]]`
+/// or inside `` `code` ``.
+fn split_cells(body: &str) -> Vec<String> {
+    let mut cells = vec![String::new()];
+    let mut link_depth = 0usize;
+    let mut in_code = false;
+    let mut chars = body.chars().peekable();
+    while let Some(c) = chars.next() {
+        let cell = cells.last_mut().unwrap();
+        if c == '`' {
+            in_code = !in_code;
+            cell.push(c);
+            continue;
+        }
+        if in_code && c == '|' {
+            cell.push(c);
+            continue;
+        }
+        match c {
+            '\\' if chars.peek() == Some(&'|') => {
+                chars.next();
+                cell.push('|');
+            }
+            '[' if chars.peek() == Some(&'[') => {
+                chars.next();
+                link_depth += 1;
+                cell.push_str("[[");
+            }
+            ']' if link_depth > 0 && chars.peek() == Some(&']') => {
+                chars.next();
+                link_depth -= 1;
+                cell.push_str("]]");
+            }
+            '|' if link_depth == 0 => cells.push(String::new()),
+            _ => cell.push(c),
+        }
+    }
+    cells
+}
+
+/// One table cell with the same inline markup, tags and links as a line of text.
+pub fn parse_cell(cell: &str, keywords: &[String], ref_label: &dyn Fn(&str) -> String) -> RichLine {
+    parse_inline(LineKind::Paragraph, cell, keywords, ref_label)
 }
 
 fn is_table_separator(line: &str) -> bool {
@@ -307,6 +422,8 @@ impl InlineStyle {
 pub enum Target {
     Tag(String),
     Memo(String),
+    /// A `[[wikilink]]` whose note id is resolved by the caller.
+    Wiki(String),
     Url(String),
 }
 
@@ -320,6 +437,7 @@ pub struct RichLine {
 
 enum Special {
     Ref(String),
+    Wiki(String, String),
     Url(String),
     Tag(String),
 }
@@ -338,8 +456,25 @@ pub fn parse_rich(
     keywords: &[String],
     ref_label: &dyn Fn(&str) -> String,
 ) -> Vec<RichLine> {
-    let raw: Vec<&str> = content.split('\n').collect();
     let mut lines = Vec::new();
+    for (key, values) in super::frontmatter::parse(content).fields {
+        if values.is_empty() {
+            continue;
+        }
+        if key == "tags" || key == "tag" {
+            let synthetic = values.iter().map(|tag| format!("#{tag}")).collect::<Vec<_>>().join(" ");
+            lines.push(parse_inline(LineKind::Property, &synthetic, keywords, ref_label));
+        } else {
+            let shown = truncate_chars(&values.join(", "), 80);
+            lines.push(RichLine {
+                kind: LineKind::Property,
+                text: format!("{key}: {shown}"),
+                styles: Vec::new(),
+                targets: Vec::new(),
+            });
+        }
+    }
+    let raw: Vec<&str> = super::frontmatter::body(content).split('\n').collect();
     let mut i = 0;
     while i < raw.len() {
         let raw_line = raw[i];
@@ -393,6 +528,30 @@ pub fn parse_rich(
             }
             continue;
         }
+        let found = super::images::spans(raw_line);
+        if !found.is_empty() {
+            let mut pos = 0;
+            for image in found {
+                let before = &raw_line[pos..image.range.start];
+                if !before.trim().is_empty() {
+                    let (kind, rest) = if pos == 0 { split_line_kind(before) } else { (LineKind::Paragraph, before.trim()) };
+                    lines.push(parse_inline(kind, rest, keywords, ref_label));
+                }
+                lines.push(RichLine {
+                    kind: LineKind::Image { src: image.src },
+                    text: image.alt,
+                    styles: Vec::new(),
+                    targets: Vec::new(),
+                });
+                pos = image.range.end;
+            }
+            let after = raw_line[pos..].trim();
+            if !after.is_empty() {
+                lines.push(parse_inline(LineKind::Paragraph, after, keywords, ref_label));
+            }
+            i += 1;
+            continue;
+        }
         let (kind, rest) = split_line_kind(raw_line);
         if kind == LineKind::Blank || kind == LineKind::Rule {
             lines.push(RichLine {
@@ -422,6 +581,9 @@ fn parse_inline(
     let mut specials: Vec<(Range<usize>, Special)> = Vec::new();
     for (range, id) in ref_spans(line) {
         specials.push((range, Special::Ref(id)));
+    }
+    for hit in super::frontmatter::wikilink_hits(line) {
+        specials.push((hit.range, Special::Wiki(hit.target, hit.label)));
     }
     for m in URL_RE.find_iter(line) {
         specials.push((m.range(), Special::Url(m.as_str().to_string())));
@@ -453,6 +615,11 @@ fn parse_inline(
                 text.push_str(&format!("↗{}", ref_label(&id)));
                 special_style.memo_ref = true;
                 Target::Memo(id)
+            }
+            Special::Wiki(target, label) => {
+                text.push_str(&label);
+                special_style.memo_ref = true;
+                Target::Wiki(target)
             }
             Special::Url(url) => {
                 text.push_str(&display_url(&url));
@@ -595,11 +762,42 @@ mod tests {
     use super::*;
 
     #[test]
+    fn yaml_tags_join_inline_tags_and_survive_rename() {
+        let note = "---\ntags:\n  - 读书/方法\n---\n\n正文 #想法\n见 [[项目]]\n";
+        assert_eq!(extract_tags(note), vec!["想法", "读书/方法"]);
+        assert_eq!(wikilink_targets(note), vec!["项目".to_string()]);
+        let renamed = rename_tag_in(note, "读书", "阅读");
+        assert!(renamed.contains("阅读/方法"));
+        assert!(!extract_tags(&renamed).iter().any(|t| t.starts_with("读书")));
+        assert!(plain_text(note).contains("正文"));
+        assert!(!plain_text(note).contains("tags:"));
+        let lines = parse_rich(note, &[], &|_| String::new());
+        assert!(lines.iter().any(|l| l.kind == LineKind::Property && l.text.contains("#读书/方法")));
+        assert!(lines.iter().any(|l| l.targets.iter().any(|(_, t)| matches!(t, Target::Wiki(name) if name == "项目"))));
+    }
+
+    #[test]
+    fn images_render_in_place_and_leave_plain_text() {
+        let note = "开头 #图\n看图 ![封面](images/a.png) 之后\n\n![](images/b.png)\n结尾";
+        let lines = parse_rich(note, &[], &|_| String::new());
+        let kinds: Vec<_> = lines.iter().map(|l| (&l.kind, l.text.as_str())).collect();
+        assert_eq!(kinds[1], (&LineKind::Paragraph, "看图 "));
+        assert_eq!(kinds[2], (&LineKind::Image { src: "images/a.png".into() }, "封面"));
+        assert_eq!(kinds[3], (&LineKind::Paragraph, "之后"));
+        assert_eq!(kinds[5], (&LineKind::Image { src: "images/b.png".into() }, ""));
+        assert_eq!(plain_text(note).split_whitespace().collect::<Vec<_>>(), vec!["开头", "#图", "看图", "之后", "结尾"]);
+    }
+
+    #[test]
     fn tags_and_hierarchy() {
         let tags = extract_tags("读书笔记 #读书/Different/营销 和 #想法， 以及 url https://a.com/#x");
         assert_eq!(tags, vec!["读书/Different/营销", "想法"]);
         assert!(extract_tags("# 标题").is_empty());
         assert!(extract_tags("a#b").is_empty());
+        assert_eq!(extract_tags("**#生活/回忆录 ** 正文"), vec!["生活/回忆录"]);
+        assert!(extract_tags("a**#b**").is_empty());
+        let technical = "缺陷 #1234567890123，修复\n- #2 完成（#6）：上线\n颜色 #000 和 `#内联` 以及 #真标签（上）\n```bash\n#!/bin/bash\n#代码\n```\n#结尾";
+        assert_eq!(extract_tags(technical), vec!["真标签", "结尾"]);
     }
 
     #[test]
@@ -640,6 +838,15 @@ mod tests {
         assert!(lines.iter().any(|l| matches!(l.kind, LineKind::Heading(1))));
         assert!(lines.iter().any(|l| matches!(l.kind, LineKind::CodeBlock { .. })));
         assert!(lines.iter().any(|l| matches!(l.kind, LineKind::TableRow { is_header: true, .. })));
+        let table = parse_rich("| 目录 | 用途 |\n| --- | --- |\n| [[00-index/README\\|索引 ★]] | 入口 \\| 更新 |", &[], &|_| String::new());
+        let LineKind::TableRow { cells, .. } = &table[1].kind else { panic!("table row") };
+        assert_eq!(cells, &vec!["[[00-index/README|索引 ★]]".to_string(), "入口 | 更新".to_string()]);
+        let coded = parse_rich("| 表 | 内容 | 写者 |\n| --- | --- | --- |\n| `t` | 索引（`at|id` 分页） | Store |", &[], &|_| String::new());
+        assert!(matches!(&coded[1].kind, LineKind::TableRow { cells, .. } if cells.len() == 3 && cells[1].contains("`at|id`")));
+        let cell = parse_cell(&cells[0], &[], &|_| String::new());
+        assert_eq!(cell.text, "索引 ★");
+        assert!(matches!(&cell.targets[0].1, Target::Wiki(t) if t == "00-index/README"));
+        assert_eq!(super::super::frontmatter::note_links("| [[a/b\\|标签]] |"), vec!["a/b".to_string()]);
         assert!(lines.iter().any(|l| matches!(l.kind, LineKind::Task { checked: true })));
         assert!(lines.iter().any(|l| l.kind == LineKind::Rule));
         let inline = lines.iter().find(|l| l.text.contains("code")).unwrap();

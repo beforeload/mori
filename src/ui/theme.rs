@@ -73,6 +73,8 @@ pub fn apply(settings: &Settings, window: &mut Window, cx: &mut App) {
 
 fn apply_brand(cx: &mut App) {
     Theme::update(cx, |theme| {
+        // Side sheets (问问笔记) run the full window height, like the docked detail panel.
+        theme.sheet.margin_top = px(0.);
         let dark = theme.mode.is_dark();
         let green = if dark { hsla(148. / 360., 0.34, 0.38, 1.) } else { hsla(148. / 360., 0.55, 0.43, 1.) };
         let green_hover = if dark { hsla(148. / 360., 0.34, 0.43, 1.) } else { hsla(148. / 360., 0.55, 0.38, 1.) };

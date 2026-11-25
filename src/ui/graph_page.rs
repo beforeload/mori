@@ -180,10 +180,18 @@ impl GraphPage {
             }
         };
         let note_index: HashMap<&str, usize> = memos.iter().enumerate().map(|(i, m)| (m.id.as_str(), i)).collect();
+        let wiki = crate::core::frontmatter::LinkIndex::build(memos.iter().map(|m| (m.id.as_str(), m.content.as_str())));
         for (i, memo) in memos.iter().enumerate() {
             for r in &memo.refs {
                 if let Some(&j) = note_index.get(r.as_str()) {
                     link(i, j, LinkKind::Reference, &mut links);
+                }
+            }
+            for target in &memo.wikilinks {
+                for id in wiki.resolve(target) {
+                    if let Some(&j) = note_index.get(id.as_str()) {
+                        link(i, j, LinkKind::Reference, &mut links);
+                    }
                 }
             }
         }
@@ -860,6 +868,9 @@ fn estimate_width(text: &str, font_size: f32) -> f32 {
 
 /// First words of a note that aren't tags, short enough to sit under a dot.
 fn note_label(content: &str) -> String {
+    if let Some(title) = crate::core::frontmatter::title(content) {
+        return parse::truncate_chars(&title, 16);
+    }
     let plain = parse::plain_text(content);
     let text = plain
         .lines()

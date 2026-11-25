@@ -405,6 +405,34 @@ impl SettingsPage {
         .detach();
     }
 
+    fn import_obsidian(&mut self, _: &mut Window, cx: &mut Context<Self>) {
+        let skip = self.skip_duplicates;
+        let paths = cx.prompt_for_paths(PathPromptOptions {
+            files: false,
+            directories: true,
+            multiple: false,
+            prompt: Some(t!("导入 Obsidian 仓库").into()),
+        });
+        cx.spawn(async move |_, cx| {
+            let Ok(Ok(Some(paths))) = paths.await else {
+                return;
+            };
+            let Some(path) = paths.into_iter().next() else {
+                return;
+            };
+            cx.update(|cx| {
+                let library = Library::global(cx);
+                let result = library.update(cx, |lib, cx| lib.mutate(cx, |s| io::import_obsidian(s, &path, skip)));
+                let message = match result {
+                    Ok(report) => report.summary(),
+                    Err(e) => t!("导入失败：{}", e),
+                };
+                notify_active(cx, message);
+            });
+        })
+        .detach();
+    }
+
     fn import_wechat(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let text = self.wechat_text.read(cx).value().to_string();
         let skip = self.skip_duplicates;
@@ -933,6 +961,10 @@ impl SettingsPage {
                             })))
                             .child(Button::new("import-files").outline().small().icon(Icon::new(Lucide::FileUp)).label(t!("选择文件")).on_click(cx.listener(|this, _, window, cx| this.import_files(window, cx)))),
                     ),
+                    row(
+                        t!("Obsidian 仓库"),
+                        Button::new("import-obsidian").outline().small().icon(Icon::new(Lucide::FolderOpen)).label(t!("选择文件夹")).on_click(cx.listener(|this, _, window, cx| this.import_obsidian(window, cx))),
+                    ),
                     block(
                         v_flex()
                             .gap_2()
@@ -944,6 +976,7 @@ impl SettingsPage {
                 cx,
             ))
             .child(caption(t!("支持 flomo 导出的 HTML（含图片，在 flomo 网页版「设置 → 导出全部数据」，解压后选择 index.html）、Mori JSON、Markdown / TXT、CSV（Day One 等）。"), cx))
+            .child(caption(t!("Obsidian 仓库里每个 Markdown 文件会成为一篇笔记，YAML 属性会保留，标签、双链和图片会一起导入。"), cx))
             .child(heading(t!("导出"), cx))
             .child(group(
                 vec![

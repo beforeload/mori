@@ -93,6 +93,20 @@ fn main() {
         }
         return;
     }
+    if let Some(pos) = args.iter().position(|a| a == "--import-obsidian") {
+        let Some(path) = args.get(pos + 1) else {
+            eprintln!("用法：mori --import-obsidian <仓库目录>");
+            std::process::exit(1);
+        };
+        match core::io::import_obsidian(&mut store, std::path::Path::new(path), true) {
+            Ok(report) => println!("{}", report.summary()),
+            Err(err) => {
+                eprintln!("导入失败：{err:#}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
 
     gpui_kit::application()
         .with_assets(gpui_kit::assets::AllAssets)

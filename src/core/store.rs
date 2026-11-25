@@ -192,6 +192,7 @@ impl Store {
                 images: serde_json::from_str(&images).unwrap_or_default(),
                 tags: Vec::new(),
                 refs: Vec::new(),
+                wikilinks: Vec::new(),
                 char_count: 0,
                 has_link: false,
             })
@@ -282,9 +283,30 @@ impl Store {
     }
 
     pub fn backlinks(&self, id: &str) -> Vec<&Memo> {
+        let index = super::frontmatter::LinkIndex::build(self.active_memos().map(|m| (m.id.as_str(), m.content.as_str())));
         self.active_memos()
-            .filter(|m| m.refs.iter().any(|r| r == id))
+            .filter(|m| {
+                m.id != id
+                    && (m.refs.iter().any(|r| r == id)
+                        || m.wikilinks.iter().any(|link| index.resolve(link).iter().any(|hit| hit == id)))
+            })
             .collect()
+    }
+
+    /// Memos this note points at, via `[[memo:id]]` or a resolved wikilink.
+    pub fn outgoing<'a>(&'a self, memo: &Memo) -> Vec<&'a Memo> {
+        let index = super::frontmatter::LinkIndex::build(self.active_memos().map(|m| (m.id.as_str(), m.content.as_str())));
+        let mut ids = Vec::new();
+        for id in memo.refs.iter().cloned().chain(memo.wikilinks.iter().flat_map(|link| index.resolve(link))) {
+            if id != memo.id && self.get_active(&id).is_some() && !ids.contains(&id) {
+                ids.push(id);
+            }
+        }
+        ids.iter().filter_map(|id| self.get_active(id)).collect()
+    }
+
+    pub fn resolve_wiki(&self, target: &str) -> Vec<String> {
+        super::frontmatter::LinkIndex::build(self.active_memos().map(|m| (m.id.as_str(), m.content.as_str()))).resolve(target)
     }
 
     pub fn create_memo(&mut self, new: NewMemo) -> Result<String> {
@@ -303,6 +325,7 @@ impl Store {
             for item in items {
                 let id = new_id();
                 let created_at = item.created_at.unwrap_or(now);
+                let item = NewMemo { images: super::images::merged(item.images, &item.content), ..item };
                 let images = serde_json::to_string(&item.images)?;
                 stmt.execute(params![
                     id,
@@ -323,6 +346,7 @@ impl Store {
                     images: item.images,
                     tags: Vec::new(),
                     refs: Vec::new(),
+                    wikilinks: Vec::new(),
                     char_count: 0,
                     has_link: false,
                 };
@@ -342,6 +366,7 @@ impl Store {
         let Some(memo) = self.get(id) else {
             anyhow::bail!(t!("笔记不存在"));
         };
+        let images = super::images::merged(images, &content);
         if memo.content == content && memo.images == images {
             return Ok(());
         }
@@ -421,10 +446,12 @@ impl Store {
             .execute("DELETE FROM memo_versions WHERE memo_id = ?1", params![id])?;
         self.conn
             .execute("DELETE FROM embeddings WHERE memo_id = ?1", params![id])?;
-        for image in images {
-            let _ = std::fs::remove_file(self.image_path(&image));
-        }
         self.memos.retain(|m| m.id != id);
+        for image in images {
+            if !self.memos.iter().any(|m| m.images.contains(&image)) {
+                let _ = std::fs::remove_file(self.image_path(&image));
+            }
+        }
         self.reindex();
         self.bump();
         Ok(())
@@ -791,6 +818,23 @@ mod tests {
         assert_eq!(store.active_count(), 0);
         store.restore(&id).unwrap();
         assert_eq!(store.active_count(), 1);
+    }
+
+    #[test]
+    fn inline_images_are_tracked_and_shared_files_survive_purge() {
+        let mut store = temp_store();
+        let name = store.save_image_bytes(b"png", "png").unwrap();
+        let text = format!("图 {}", super::super::images::markdown(&name, ""));
+        let a = store.create_memo(memo(&text)).unwrap();
+        let b = store.create_memo(memo(&text)).unwrap();
+        assert_eq!(store.get(&a).unwrap().images, vec![name.clone()]);
+        store.update_memo(&a, "没有图了".into(), vec![]).unwrap();
+        assert!(store.get(&a).unwrap().images.is_empty());
+        store.update_memo(&a, text.clone(), vec![]).unwrap();
+        store.purge(&a).unwrap();
+        assert!(store.image_path(&name).exists());
+        store.purge(&b).unwrap();
+        assert!(!store.image_path(&name).exists());
     }
 
     #[test]

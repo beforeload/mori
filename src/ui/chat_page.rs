@@ -366,33 +366,32 @@ impl Render for ChatPage {
                     ),
             )
             .child(
-                h_flex()
-                    .w_full()
-                    .max_w(px(820.))
-                    .mx_auto()
-                    .px_6()
-                    .pb_4()
-                    .pt_2()
-                    .gap_2()
-                    .items_end()
-                    .child(
-                        div()
-                            .flex_1()
-                            .p_2()
-                            .rounded_lg()
-                            .bg(theme.background)
-                            .border_1()
-                            .border_color(theme.border)
-                            .child(Textarea::new(&self.input).appearance(false)),
-                    )
-                    .child(
-                        Button::new("chat-send")
-                            .primary()
-                            .icon(Icon::new(Lucide::SendHorizontal))
-                            .loading(self.streaming.is_some())
-                            .disabled(!configured)
-                            .on_click(cx.listener(|this, _, window, cx| this.send(window, cx))),
-                    ),
+                div().w_full().max_w(px(820.)).mx_auto().px_6().pb_4().pt_2().child(
+                    div()
+                        .relative()
+                        .w_full()
+                        .pl_3()
+                        .pr(px(56.))
+                        .py_1p5()
+                        .rounded_lg()
+                        .bg(theme.background)
+                        .border_1()
+                        .border_color(theme.border)
+                        .child(Textarea::new(&self.input).appearance(false))
+                        .child(
+                            // Centred on the box itself, so the button lines up with a single line of text.
+                            h_flex().absolute().top_0().bottom_0().right(px(8.)).items_center().child(
+                                Button::new("chat-send")
+                                    .primary()
+                                    .small()
+                                    .w(px(40.))
+                                    .icon(Icon::new(Lucide::SendHorizontal))
+                                    .loading(self.streaming.is_some())
+                                    .disabled(!configured)
+                                    .on_click(cx.listener(|this, _, window, cx| this.send(window, cx))),
+                            ),
+                        ),
+                ),
             )
     }
 }
