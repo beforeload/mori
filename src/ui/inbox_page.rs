@@ -37,7 +37,7 @@ impl Render for InboxPage {
         let memos: Vec<_> = lib
             .store()
             .active_memos()
-            .filter(|m| matches!(m.source.as_str(), "api" | "mcp"))
+            .filter(|m| matches!(m.source.as_str(), "api" | "mcp" | "cli"))
             .collect();
         let theme = cx.theme().clone();
         let s = surfaces(cx);

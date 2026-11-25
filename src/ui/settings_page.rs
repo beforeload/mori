@@ -889,11 +889,23 @@ impl SettingsPage {
         v_flex()
             .gap_3()
             .child(heading(t!("MCP 服务"), cx))
-            .child(caption(t!("让 Claude、Cursor、Cherry Studio 等 AI 工具搜索、读取、创建笔记并读取记忆档案（共 10 个工具）。"), cx))
+            .child(caption(&t!("让 Claude、Cursor、Cherry Studio 等 AI 工具搜索、读取、创建笔记并读取记忆档案（共 {} 个工具）。", crate::mcp::tool_definitions().len()), cx))
             .child(code(mcp))
             .child(h_flex().child(Button::new("copy-mcp").outline().small().icon(Icon::new(Lucide::Copy)).label(t!("复制 MCP 配置")).on_click(move |_, window, cx| {
                 cx.write_to_clipboard(ClipboardItem::new_string(mcp_copy.clone()));
                 window.push_notification(t!("已复制，粘贴到 AI 工具的 MCP 配置中即可"), cx);
+            })))
+            .child(heading(t!("命令行工具"), cx))
+            .child(caption(t!("在终端、脚本或 Claude Code、Codex 等 AI 工具里直接读写笔记：mori search、mori new、mori export 等。mori guide 会打印给 AI 看的完整说明。"), cx))
+            .child(code("mori list --limit 5\nmori search 读书 方法 --json\necho \"一个想法 #收集箱\" | mori new\nmori export --format jsonl --since 2026-01-01 > notes.jsonl".into()))
+            .child(h_flex().gap_2().child(Button::new("install-cli").outline().small().icon(Icon::new(Lucide::SquareTerminal)).label(t!("安装 mori 命令")).on_click(|_, window, cx| {
+                match crate::cli::install_cli(None) {
+                    Ok(message) => window.push_notification(Notification::success(message), cx),
+                    Err(err) => window.push_notification(Notification::error(t!("安装失败：{}", err)), cx),
+                }
+            })).child(Button::new("copy-guide").ghost().small().icon(Icon::new(Lucide::Copy)).label(t!("复制 AI 使用说明")).on_click(|_, window, cx| {
+                cx.write_to_clipboard(ClipboardItem::new_string(crate::cli::GUIDE.to_string()));
+                window.push_notification(t!("已复制，可粘贴给 AI 工具或放进 AGENTS.md"), cx);
             })))
             .child(heading(t!("本地 API"), cx))
             .child(group(

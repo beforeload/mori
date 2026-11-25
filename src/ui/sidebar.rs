@@ -333,6 +333,7 @@ pub fn render_sidebar(ws: &Workspace, cx: &mut Context<Workspace>) -> impl IntoE
                 .gap_4()
                 .child(
                     h_flex()
+                        .h_9()
                         .ml(px(-6.))
                         .mr(px(-6.))
                         .gap_0p5()

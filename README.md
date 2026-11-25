@@ -110,20 +110,30 @@ curl -H "Authorization: Bearer <token>" http://127.0.0.1:17321/api/v1/tags
 }
 ```
 
-Tools: `search_memos`, `get_memo`, `create_memo`, `update_memo`, `delete_memo`, `list_tags`, `get_related_memos`, `get_daily_review`, `get_memory_profile`, `get_stats`.
+Tools: `search_memos` (with paging), `get_memo`, `create_memo`, `update_memo`, `append_memo`, `delete_memo`, `list_tags`, `get_related_memos`, `get_daily_review`, `get_memory_profile`, `get_stats`.
 
 Notes written through the API or MCP show up under “API inbox” in the sidebar. The sidebar refresh button reads them immediately.
 
 ## Command line
 
+The same binary is a command line for you, your scripts, and AI agents (Claude Code, Codex, Cursor). It reads and writes the app's library; the running app picks up changes within seconds. Add `--json` for machine-readable output.
+
 ```bash
-mori                       # launch the app
-mori --mcp                 # run the MCP server
-mori --import a.html b.csv # import files and exit (duplicates are skipped)
-mori --import-obsidian ~/vault  # import an Obsidian vault and exit
+mori                                  # launch the app
+mori list --limit 20 --tag reading    # newest notes
+mori search product idea --json       # keyword search (--semantic ranks by meaning)
+mori get <id>                         # one note with backlinks
+echo "An idea #inbox" | mori new      # create from stdin, or: mori new "text" --tag inbox
+mori append <id> "one more line"      # also: edit, rm (to the trash)
+mori tags / stats / related <id> / review
+mori export --format jsonl --since 2026-01-01 > notes.jsonl   # bulk, for analysis
+mori import a.html b.csv              # import files (duplicates are skipped)
+mori import-obsidian ~/vault          # import an Obsidian vault
+mori mcp                              # MCP server on stdio (same as --mcp)
+mori guide                            # usage guide written for AI tools
 ```
 
-The installed app's binary is `/Applications/Mori.app/Contents/MacOS/mori`; it is not on `PATH` unless you link it there.
+`mori install-cli` (or Settings → MCP / API → install the `mori` command) links the app's binary, `/Applications/Mori.app/Contents/MacOS/mori`, into `~/.local/bin`. [docs/AI.md](docs/AI.md) is the guide AI tools can read: note conventions, JSON shapes, and recipes.
 
 A source build produces the `mori` binary (`cargo run --release` writes `target/release/mori`). `MORI_DATA_DIR` points at a data directory, so you can try the app against a copy and leave real notes alone. The older `MINDFLOW_DATA_DIR` still works.
 

@@ -1,6 +1,7 @@
 #[macro_use]
 mod i18n;
 mod api_server;
+mod cli;
 mod core;
 mod mcp;
 mod ui;
@@ -65,48 +66,17 @@ pub fn install_menus(cx: &mut gpui_kit::App) {
 }
 
 fn main() {
-    if std::env::args().any(|a| a == "--mcp") {
-        if let Err(err) = mcp::run() {
-            eprintln!("Mori MCP 服务器出错：{err:#}");
-            std::process::exit(1);
-        }
-        return;
+    if let Some(code) = cli::try_run() {
+        std::process::exit(code);
     }
 
-    let mut store = match core::store::Store::open_default() {
+    let store = match core::store::Store::open_default() {
         Ok(store) => store,
         Err(err) => {
             eprintln!("无法打开 Mori 数据库：{err:#}");
             std::process::exit(1);
         }
     };
-
-    let args: Vec<String> = std::env::args().collect();
-    if let Some(pos) = args.iter().position(|a| a == "--import") {
-        let paths: Vec<std::path::PathBuf> = args[pos + 1..].iter().map(Into::into).collect();
-        match core::io::import_files(&mut store, &paths, true) {
-            Ok(report) => println!("{}", report.summary()),
-            Err(err) => {
-                eprintln!("导入失败：{err:#}");
-                std::process::exit(1);
-            }
-        }
-        return;
-    }
-    if let Some(pos) = args.iter().position(|a| a == "--import-obsidian") {
-        let Some(path) = args.get(pos + 1) else {
-            eprintln!("用法：mori --import-obsidian <仓库目录>");
-            std::process::exit(1);
-        };
-        match core::io::import_obsidian(&mut store, std::path::Path::new(path), true) {
-            Ok(report) => println!("{}", report.summary()),
-            Err(err) => {
-                eprintln!("导入失败：{err:#}");
-                std::process::exit(1);
-            }
-        }
-        return;
-    }
 
     gpui_kit::application()
         .with_assets(gpui_kit::assets::AllAssets)

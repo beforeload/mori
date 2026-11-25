@@ -34,11 +34,12 @@ use super::theme::surfaces;
 use super::{Command, Lucide, Route, dispatch};
 
 /// (source key, label) for the 笔记来源 filter; `None` shows every source.
-fn sources() -> [(Option<&'static str>, &'static str); 7] { [
+fn sources() -> [(Option<&'static str>, &'static str); 8] { [
     (None, t!("全部")),
     (Some("app"), t!("应用内")),
     (Some("api"), "API"),
     (Some("mcp"), "MCP"),
+    (Some("cli"), t!("命令行")),
     (Some("ai"), t!("AI 对话")),
     (Some("import"), t!("导入")),
     (Some("obsidian"), "Obsidian"),

@@ -173,6 +173,7 @@ pub fn source_label(source: &str) -> &str {
         "import" => t!("导入"),
         "api" => "API",
         "mcp" => "MCP",
+        "cli" => t!("命令行"),
         "ai" => t!("AI 对话"),
         "obsidian" => "Obsidian",
         other => other,

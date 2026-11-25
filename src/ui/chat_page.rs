@@ -23,6 +23,9 @@ use super::memo_card::mini_card;
 use super::tasks::{StreamEvent, run_blocking, stream_chat};
 use super::{Command, Lucide, dispatch};
 
+/// Inner height of the chat input box holding one line of text.
+const CHAT_INPUT_LINE_BOX: f32 = 44.;
+
 fn starters() -> [&'static str; 4] {
     [
         t!("最近一个月我主要在思考什么？"),
@@ -379,8 +382,9 @@ impl Render for ChatPage {
                         .border_color(theme.border)
                         .child(Textarea::new(&self.input).appearance(false))
                         .child(
-                            // Centred on the box itself, so the button lines up with a single line of text.
-                            h_flex().absolute().top_0().bottom_0().right(px(8.)).items_center().child(
+                            // A one-line-high slot pinned to the bottom: centred beside a single
+                            // line, in the bottom-right corner once the text grows.
+                            h_flex().absolute().bottom_0().right(px(8.)).h(px(CHAT_INPUT_LINE_BOX)).items_center().child(
                                 Button::new("chat-send")
                                     .primary()
                                     .small()

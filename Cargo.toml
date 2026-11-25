@@ -1,6 +1,6 @@
 [package]
 name = "mori"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 description = "Mori is a local-first card notebook for macOS: capture freely, then revisit, wander, and map what you keep thinking about."
 readme = "README.md"

@@ -272,9 +272,11 @@ impl Render for MemoDetail {
         let lib = library.read(cx);
         let memo = lib.store().get(&self.memo_id).cloned();
         let theme = cx.theme();
+        // Same height as the stream's title row, so the two headers share a centre line.
         let header = h_flex()
+            .flex_shrink_0()
+            .h_9()
             .px_4()
-            .py_3()
             .gap_2()
             .border_b_1()
             .border_color(theme.border)
@@ -302,6 +304,7 @@ impl Render for MemoDetail {
                 &memo,
                 CardOptions {
                     expanded: true,
+                    collapsible: false,
                     mode: if memo.is_deleted() {
                         super::memo_card::CardMode::Trash
                     } else {

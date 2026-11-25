@@ -3,7 +3,7 @@
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::menu::DropdownMenu as _;
 use gpui_kit::component::input::{
-    Escape as InputEscape, IndentInline, InlineToken, InlineTokenContext, InputContent, InputEvent, InputToken,
+    Enter as InputEnter, Escape as InputEscape, IndentInline, InlineToken, InlineTokenContext, InputContent, InputEvent, InputToken,
     MoveDown, MoveUp, Textarea, TextareaState,
 };
 use gpui_kit::component::{ActiveTheme as _, Disableable as _, Icon, Sizable as _, WindowExt as _, h_flex, v_flex};
@@ -887,6 +887,13 @@ impl Render for Composer {
             .on_action(cx.listener(|this, _: &FormatBold, window, cx| this.wrap_selection("**", window, cx)))
             .on_action(cx.listener(|this, _: &FormatHighlight, window, cx| this.wrap_selection("==", window, cx)))
             .on_action(cx.listener(|this, _: &FormatUnderline, window, cx| this.wrap_selection("__", window, cx)))
+            // ⌘↩ saves. The textarea would insert a newline at the caret before reporting it.
+            .capture_action(cx.listener(|this, action: &InputEnter, window, cx| {
+                if action.secondary {
+                    cx.stop_propagation();
+                    this.submit(window, cx);
+                }
+            }))
             // The textarea binds these keys itself; capture them first while the picker is open.
             .capture_action(cx.listener(|this, _: &MoveDown, _, cx| {
                 if this.suggestion.is_some() {

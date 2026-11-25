@@ -7,6 +7,7 @@ use anyhow::Result;
 use serde_json::{Value, json};
 
 use crate::core::query::{MemoFilter, SortOrder, filter_memos};
+use crate::core::model::Memo;
 use crate::core::semantic::SemanticIndex;
 use crate::core::store::{NewMemo, Store};
 use crate::core::{review, stats, tags, time};
@@ -99,14 +100,15 @@ pub fn tool_definitions() -> Vec<Value> {
     vec![
         tool(
             "search_memos",
-            t!("搜索笔记。query 为关键词（空格分隔，需全部命中）；semantic=true 时按语义相关度排序。"),
+            t!("搜索笔记。query 为关键词（空格分隔，需全部命中），留空则按时间倒序列出；semantic=true 时按语义相关度排序；用 offset 翻页。"),
             json!({
                 "query": {"type": "string"},
                 "tag": {"type": "string", "description": t!("标签，不含 #，包含子标签")},
                 "since": {"type": "string", "description": t!("开始日期 YYYY-MM-DD")},
                 "until": {"type": "string", "description": t!("结束日期 YYYY-MM-DD")},
                 "semantic": {"type": "boolean"},
-                "limit": {"type": "integer", "default": 20}
+                "limit": {"type": "integer", "default": 20},
+                "offset": {"type": "integer", "default": 0}
             }),
             &[],
         ),
@@ -120,6 +122,12 @@ pub fn tool_definitions() -> Vec<Value> {
         tool(
             "update_memo",
             t!("修改一条笔记的内容（旧内容保存在历史版本中）。"),
+            json!({"id": {"type": "string"}, "content": {"type": "string"}}),
+            &["id", "content"],
+        ),
+        tool(
+            "append_memo",
+            t!("在一条笔记末尾追加内容（另起一行，旧内容保存在历史版本中）。"),
             json!({"id": {"type": "string"}, "content": {"type": "string"}}),
             &["id", "content"],
         ),
@@ -138,9 +146,11 @@ pub fn tool_definitions() -> Vec<Value> {
 }
 
 fn memo_json(store: &Store, id: &str) -> Value {
-    let Some(m) = store.get(id) else {
-        return Value::Null;
-    };
+    store.get(id).map(|m| memo_value(store, m)).unwrap_or(Value::Null)
+}
+
+/// One note for AI tools: text, tags, links, and absolute paths of its image files.
+pub fn memo_value(store: &Store, m: &Memo) -> Value {
     json!({
         "id": m.id,
         "content": m.content,
@@ -148,7 +158,9 @@ fn memo_json(store: &Store, id: &str) -> Value {
         "updated_at": time::fmt_datetime(m.updated_at),
         "tags": m.tags,
         "pinned": m.pinned,
+        "source": m.source,
         "refs": m.refs,
+        "images": m.images.iter().map(|name| store.image_path(name)).collect::<Vec<_>>(),
     })
 }
 
@@ -160,6 +172,7 @@ pub fn call_tool(store: &mut Store, name: &str, args: &Value) -> Result<String> 
     let value = match name {
         "search_memos" => {
             let limit = args.get("limit").and_then(|l| l.as_u64()).unwrap_or(20) as usize;
+            let offset = args.get("offset").and_then(|o| o.as_u64()).unwrap_or(0) as usize;
             let filter = MemoFilter {
                 tag: str_arg(args, "tag").map(|t| t.trim_start_matches('#').to_string()),
                 date_from: str_arg(args, "since").and_then(time::parse_date),
@@ -168,6 +181,7 @@ pub fn call_tool(store: &mut Store, name: &str, args: &Value) -> Result<String> 
             };
             let query = str_arg(args, "query").unwrap_or("").to_string();
             let semantic = args.get("semantic").and_then(|s| s.as_bool()).unwrap_or(false);
+            let mut total = None;
             let ids: Vec<String> = if semantic && !query.is_empty() {
                 let candidates: Vec<String> = filter_memos(store, &filter, SortOrder::CreatedDesc)
                     .iter()
@@ -178,16 +192,19 @@ pub fn call_tool(store: &mut Store, name: &str, args: &Value) -> Result<String> 
                     .filter_map(|id| store.get(id).map(|m| (id.clone(), m.content.clone())))
                     .collect();
                 let index = SemanticIndex::build(&docs, Default::default());
-                index.search(&query, None, limit, |_| true).into_iter().map(|(id, _)| id).collect()
+                index.search(&query, None, offset + limit, |_| true).into_iter().skip(offset).map(|(id, _)| id).collect()
             } else {
                 let filter = MemoFilter { keywords: query, ..filter };
-                filter_memos(store, &filter, SortOrder::CreatedDesc)
-                    .iter()
-                    .take(limit)
-                    .map(|m| m.id.clone())
-                    .collect()
+                let all = filter_memos(store, &filter, SortOrder::CreatedDesc);
+                total = Some(all.len());
+                all.iter().skip(offset).take(limit).map(|m| m.id.clone()).collect()
             };
-            json!({"count": ids.len(), "memos": ids.iter().map(|id| memo_json(store, id)).collect::<Vec<_>>()})
+            json!({
+                "count": ids.len(),
+                "total": total,
+                "offset": offset,
+                "memos": ids.iter().map(|id| memo_json(store, id)).collect::<Vec<_>>()
+            })
         }
         "get_memo" => {
             let id = str_arg(args, "id").ok_or_else(|| anyhow::anyhow!(t!("缺少 id")))?;
@@ -198,13 +215,23 @@ pub fn call_tool(store: &mut Store, name: &str, args: &Value) -> Result<String> 
         }
         "create_memo" => {
             let content = str_arg(args, "content").ok_or_else(|| anyhow::anyhow!(t!("缺少 content")))?;
+            // The `mori` command line shares this tool and marks its notes as its own.
+            let source = if str_arg(args, "source") == Some("cli") { "cli" } else { "mcp" };
             let id = store.create_memo(NewMemo {
                 content: content.to_string(),
                 created_at: None,
                 images: vec![],
-                source: "mcp".into(),
+                source: source.into(),
             })?;
             json!({"created": memo_json(store, &id)})
+        }
+        "append_memo" => {
+            let id = str_arg(args, "id").ok_or_else(|| anyhow::anyhow!(t!("缺少 id")))?;
+            let content = str_arg(args, "content").ok_or_else(|| anyhow::anyhow!(t!("缺少 content")))?;
+            let memo = store.get_active(id).cloned().ok_or_else(|| anyhow::anyhow!("笔记不存在：{id}"))?;
+            let next = format!("{}\n{}", memo.content.trim_end(), content.trim());
+            store.update_memo(id, next, memo.images.clone())?;
+            json!({"updated": memo_json(store, id)})
         }
         "update_memo" => {
             let id = str_arg(args, "id").ok_or_else(|| anyhow::anyhow!(t!("缺少 id")))?;
@@ -281,6 +308,22 @@ mod tests {
         let tags = call_tool(&mut store, "list_tags", &json!({})).unwrap();
         assert!(tags.contains("测试"));
         let init = handle(&mut store, "tools/list", &json!({})).unwrap();
-        assert_eq!(init["tools"].as_array().unwrap().len(), 10);
+        assert_eq!(init["tools"].as_array().unwrap().len(), 11);
+    }
+
+    #[test]
+    fn paging_append_and_cli_source() {
+        let dir = std::env::temp_dir().join(format!("mori-mcp-{}", crate::core::store::new_id()));
+        let mut store = Store::open(&dir).unwrap();
+        for i in 0..5 {
+            call_tool(&mut store, "create_memo", &json!({"content": format!("第{i}条"), "source": "cli"})).unwrap();
+        }
+        let page: Value = serde_json::from_str(&call_tool(&mut store, "search_memos", &json!({"limit": 2, "offset": 4})).unwrap()).unwrap();
+        assert_eq!((page["count"].as_u64(), page["total"].as_u64()), (Some(1), Some(5)));
+        let id = page["memos"][0]["id"].as_str().unwrap().to_string();
+        assert_eq!(page["memos"][0]["source"], "cli");
+        call_tool(&mut store, "append_memo", &json!({"id": id, "content": "补充 #新"})).unwrap();
+        let memo = store.get(&id).unwrap();
+        assert!(memo.content.ends_with("\n补充 #新") && memo.tags == vec!["新"]);
     }
 }

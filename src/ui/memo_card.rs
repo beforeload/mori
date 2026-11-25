@@ -27,6 +27,8 @@ pub struct CardOptions {
     pub max_lines: usize,
     pub mode: CardMode,
     pub highlighted: bool,
+    /// Offers 收起 on an expanded long note; the detail panel always shows notes in full.
+    pub collapsible: bool,
 }
 
 impl CardOptions {
@@ -38,6 +40,7 @@ impl CardOptions {
             max_lines: 10,
             mode: CardMode::Normal,
             highlighted: false,
+            collapsible: true,
         }
     }
 }
@@ -217,7 +220,7 @@ pub fn memo_card(memo: &Memo, opts: CardOptions, library: &Library, cx: &App) ->
                     .on_click(move |_, window, cx| dispatch(Command::Expand(expand_id.clone()), window, cx)),
             )
         })
-        .when(opts.expanded && settings.fold_long_memos && memo.char_count > 300, |this| {
+        .when(opts.collapsible && opts.expanded && settings.fold_long_memos && memo.char_count > 300, |this| {
             let collapse_id = id.clone();
             this.child(
                 div()
